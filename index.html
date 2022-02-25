@@ -31,13 +31,31 @@
         noData: '😞 No Results! ',
         depth: 6
       },
+      // 字数统计
+      count: {
+        countable: true,
+        fontsize: '0.9em',
+        color: 'rgb(90,90,90)',
+        language: 'chinese'
+      },
+      // 分页
+      pagination: {
+        previousText: 'PREVIOUS',
+        nextText: 'NEXT',
+        crossChapter: true
+      },
     }
   </script>
   <!-- Docsify v4 -->
   <script src="//cdn.jsdelivr.net/npm/docsify@4"></script>
-  <script src="//unpkg.com/docsify-copy-code"></script>
+  <!-- 插件：全文搜索 -->
   <script src="https://cdn.jsdelivr.net/npm/docsify@4/lib/plugins/search.js"></script>
-
+  <!-- 插件：分页 -->
+  <script src="//unpkg.com/docsify-pagination/dist/docsify-pagination.min.js"></script>
+  <!-- 插件：放大图片 -->
+  <script src="//unpkg.com/docsify/lib/plugins/zoom-image.js"></script>
+  <!-- 插件：字数统计 -->
+  <script src="//unpkg.com/docsify-count/dist/countable.js"></script>
 </body>
 
 </html>
