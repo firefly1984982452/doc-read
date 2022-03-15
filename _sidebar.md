@@ -1,5 +1,6 @@
 - [readme](/readME.md)
 - [按类型分](/type.md)
+- [关于我的读书笔记](/about.md)
 
 - 四大名著
   - [《三国演义》](/read/《三国演义》.md)
