@@ -1,6 +1,5 @@
-- [readme](/readME.md)
-- [按类型分](/docs/think/type.md)
 - [关于我的读书笔记](/docs/think/about.md)
+- [按类型分](/docs/think/type.md)
 - [不同阶段的想法](/docs/think/think.md)
 
 - 中国名著

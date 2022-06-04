@@ -2,6 +2,6 @@
 
 # 我的阅读笔记
 
-- 上有天堂、下有书房
+## 上有天堂、下有书房
 
-[GitHub](https://github.com/Q-Angelo/Nodejs-Roadmap) [开始阅读](README.md)
+[GitHub](https://github.com/Q-Angelo/Nodejs-Roadmap) [开始阅读](/docs/think/about.md)
