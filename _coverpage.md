@@ -4,4 +4,6 @@
 
 ## 上有天堂、下有书房
 
-[GitHub](https://github.com/Q-Angelo/Nodejs-Roadmap) [开始阅读](/docs/think/about.md)
+<!-- [GitHub](https://github.com/Q-Angelo/Nodejs-Roadmap) [开始阅读](/docs/think/about.md) -->
+
+[GitHub](https://github.com/Q-Angelo/Nodejs-Roadmap) [开始阅读](/docs/demo.md)
