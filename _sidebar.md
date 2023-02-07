@@ -158,6 +158,8 @@
 
 - [影视分享](/docs/video.md)
 - [推荐](/docs/recommend.md)
+- [《咬文嚼字》](/docs/read/《咬文嚼字》.md)
+- [《中国名著世界名著一本通》](/docs/read/《中国名著世界名著一本通》.md)
 
 
 - 每年阅读总结
