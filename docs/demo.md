@@ -416,3 +416,6 @@ npx vue-cli-service help [command]
 通过 `vue create` 创建的项目无需额外的配置就已经可以跑起来了。插件的设计也是可以相互共存的，所以绝大多数情况下，你只需要在交互式命令提示中选取需要的功能即可。
 
 不过我们也知道满足每一个需求是不太可能的，而且一个项目的需求也会不断改变。通过 Vue CLI 创建的项目让你无需 eject 就能够配置工具的几乎每个角落。更多细节请查阅[配置参考](../config/)。
+
+
+<iframe height="50" style="width: 100%;" title="其它信息" frameborder="0" src="https://firefly1984982452.github.io/doc-read/#/docs/demo/test.html"></iframe>
