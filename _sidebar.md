@@ -170,6 +170,7 @@
   - [2021](/docs/years/2021.md)
   - [2022](/docs/years/2022.md)
   - [2023](/docs/years/2023.md)
+  - [2022年度最新豆瓣读书TOP250书单-我的进度](/docs/years/top250-2022-me.md)
 
 - 模板
   
