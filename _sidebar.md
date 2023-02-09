@@ -160,6 +160,7 @@
 - [推荐](/docs/recommend.md)
 - [《咬文嚼字》](/docs/read/《咬文嚼字》.md)
 - [《中国名著世界名著一本通》](/docs/read/《中国名著世界名著一本通》.md)
+- [会购买实体书的书](/docs/other/purchase.md)
 
 
 - 每年阅读总结
