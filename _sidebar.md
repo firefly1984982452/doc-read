@@ -1,7 +1,7 @@
 - [demo](/docs/demo.md)
 - [关于我的读书笔记](/docs/think/about.md)
 - [不同阶段的读书想法](/docs/think/think.md)
-- [待筛选/待阅读书籍清单列表](/docs/think/todo.md)
+- [待筛选/待阅读/待购买书籍清单列表](/docs/think/todo.md)
 
 - ==========国内小说 ↓==========
 
@@ -160,7 +160,6 @@
 - [推荐](/docs/recommend.md)
 - [《咬文嚼字》](/docs/read/《咬文嚼字》.md)
 - [《中国名著世界名著一本通》](/docs/read/《中国名著世界名著一本通》.md)
-- [会购买实体书的书](/docs/other/purchase.md)
 
 
 - 每年阅读总结
