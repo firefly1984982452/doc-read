@@ -1,7 +1,7 @@
 <!-- - [demo](/docs/demo.md) -->
 - [关于我的读书笔记](/docs/think/about.md)
 - [不同阶段的读书想法](/docs/think/think.md)
-- [更新内容](/docs/think/update.md)
+- [博客更新内容](/docs/think/update.md)
 
 - ===========古籍 ↓===========
 
