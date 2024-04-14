@@ -230,13 +230,13 @@
 
 - 每年阅读列表
 
-  - [2018](/docs/years/2018.md)
-  - [2019](/docs/years/2019.md)
-  - [2020](/docs/years/2020.md)
-  - [2021](/docs/years/2021.md)
-  - [2022](/docs/years/2022.md)
-  - [2023](/docs/years/2023.md)
   - [2024](/docs/years/2024.md)
+  - [2023](/docs/years/2023.md)
+  - [2022](/docs/years/2022.md)
+  - [2021](/docs/years/2021.md)
+  - [2020](/docs/years/2020.md)
+  - [2019](/docs/years/2019.md)
+  - [2018](/docs/years/2018.md)
 
 - 模板
   
