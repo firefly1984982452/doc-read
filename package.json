@@ -1,0 +1,19 @@
+{
+  "name": "doc-read",
+  "version": "2.0.0",
+  "private": true,
+  "description": "丹的阅读笔记：Docsify 静态阅读档案",
+  "scripts": {
+    "dev": "docsify serve . --port 3000",
+    "generate": "node scripts/generate-site.mjs",
+    "check": "node scripts/check-site.mjs",
+    "check:images": "node scripts/check-images.mjs",
+    "build": "npm run generate && npm run check"
+  },
+  "devDependencies": {
+    "docsify-cli": "4.4.4"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

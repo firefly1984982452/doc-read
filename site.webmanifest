@@ -1,0 +1,17 @@
+{
+  "name": "丹的阅读笔记",
+  "short_name": "阅读笔记",
+  "description": "一座持续生长的个人阅读档案",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f7f7fa",
+  "theme_color": "#8b22e8",
+  "icons": [
+    {
+      "src": "assets/images/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

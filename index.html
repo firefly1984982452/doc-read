@@ -1,68 +1,114 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 
 <head>
   <meta charset="UTF-8">
-  <title>阅读</title>
-  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
-  <meta name="description" content="Description">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0">
-  <link rel="stylesheet" href="//fastly.jsdelivr.net/npm/docsify@4/lib/themes/vue.css">
-  <link rel="stylesheet" href="//fastly.jsdelivr.net/npm/docsify-sidebar-collapse/dist/sidebar.min.css" />
-  <link rel="shortcut icon" href="./assets/images/vue.ico" />
-  <link rel="stylesheet" href="https://firefly1984982452.github.io/my-web-page/css/blog-docsify.css">
+  <title>丹的阅读笔记</title>
+  <meta name="description" content="一座持续生长的个人阅读档案，记录文学、历史、哲学与生活类书籍的阅读笔记。">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#8b22e8">
+  <meta name="color-scheme" content="light dark">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://firefly1984982452.github.io/doc-read/">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="zh_CN">
+  <meta property="og:title" content="丹的阅读笔记">
+  <meta property="og:description" content="上有天堂，下有书房。记录每一本认真读过的书。">
+  <meta property="og:url" content="https://firefly1984982452.github.io/doc-read/">
+  <meta property="og:image" content="https://firefly1984982452.github.io/doc-read/assets/images/cover.svg">
+  <link rel="icon" href="./assets/images/favicon.svg" type="image/svg+xml">
+  <link rel="manifest" href="./site.webmanifest">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/docsify@4.13.1/lib/themes/vue.css">
+  <link rel="stylesheet" href="./assets/css/blog.css">
+  <script>
+    (function () {
+      var savedTheme = localStorage.getItem('doc-read-theme');
+      var systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      document.documentElement.dataset.theme = savedTheme || (systemDark ? 'dark' : 'light');
+    }());
+  </script>
 </head>
 
 <body>
-  <div id="app"></div>
+  <a class="skip-link" href="#main">跳到正文</a>
+  <div id="reading-progress" aria-hidden="true"></div>
+  <button id="theme-toggle" class="theme-toggle" type="button" aria-label="切换深浅色主题" title="切换深浅色主题">
+    <span aria-hidden="true">◐</span>
+  </button>
+  <div id="app">正在打开书房…</div>
+  <noscript>这个网站需要启用 JavaScript 才能浏览阅读笔记。</noscript>
+
+  <script src="./assets/js/search-paths.js"></script>
+  <script src="./assets/js/reading-data.js"></script>
   <script>
     window.$docsify = {
-      name: '阅读',
-      repo: 'https://github.com/firefly1984982452/doc-read.git',
-      noEmoji: true,
-      // 是否开启首页
+      name: '丹的阅读笔记',
+      nameLink: '#/',
+      repo: 'https://github.com/firefly1984982452/doc-read',
+      noEmoji: false,
       coverpage: true,
-      // 左侧导航栏
+      onlyCover: false,
       loadSidebar: true,
+      loadNavbar: true,
+      mergeNavbar: true,
       subMaxLevel: 3,
-      sidebarDisplayLevel: 0,
+      maxLevel: 4,
       auto2top: true,
-      // 顶部菜单栏
-      loadNavbar: false,
-      // 左侧搜索栏
+      autoHeader: false,
+      relativePath: false,
+      notFoundPage: '404.md',
+      topMargin: 32,
       search: {
-        paths: 'auto',
-        placeholder: '🔍 search ',
-        noData: '😞 No Results! ',
-        depth: 6
+        paths: window.DOC_READ_SEARCH_PATHS || 'auto',
+        placeholder: '搜索书名、作者或笔记内容',
+        noData: '没有找到相关内容',
+        depth: 4,
+        hideOtherSidebarContent: true,
+        namespace: 'doc-read-v2'
       },
-      // 字数统计
       count: {
         countable: true,
-        fontsize: '0.9em',
-        color: 'rgb(90,90,90)',
+        fontsize: '0.82em',
+        color: 'var(--text-muted)',
         language: 'chinese'
       },
-      // 分页
       pagination: {
-        previousText: 'PREVIOUS',
-        nextText: 'NEXT',
+        previousText: '上一篇',
+        nextText: '下一篇',
         crossChapter: true
       },
-    }
+      plugins: [
+        function (hook) {
+          hook.doneEach(function () {
+            var articleTitle = document.querySelector('.markdown-section h1');
+            var isReadingNote = /^#\/docs\/(?:read|read-history)\//.test(window.location.hash);
+            document.body.classList.toggle('reading-note-page', isReadingNote);
+            document.querySelectorAll('.markdown-section > p').forEach(function (paragraph) {
+              var isMetadata = /^\s*date\s*:/i.test(paragraph.textContent);
+              paragraph.classList.toggle('reading-body-paragraph', isReadingNote && !isMetadata);
+            });
+            document.title = articleTitle
+              ? articleTitle.textContent.trim() + ' · 丹的阅读笔记'
+              : '丹的阅读笔记';
+            document.querySelectorAll('.markdown-section a[href^="http"]').forEach(function (link) {
+              if (link.hostname !== window.location.hostname) {
+                link.target = '_blank';
+                link.rel = 'noopener noreferrer';
+              }
+            });
+            document.dispatchEvent(new CustomEvent('doc-read:rendered'));
+          });
+        }
+      ]
+    };
   </script>
-  <!-- Docsify v4 -->
-  <script src="//fastly.jsdelivr.net/npm/docsify@4"></script>
-  <!-- 插件：全文搜索 -->
-  <script src="https://fastly.jsdelivr.net/npm/docsify@4/lib/plugins/search.js"></script>
-  <!-- 插件：分页 -->
-  <script src="//unpkg.com/docsify-pagination/dist/docsify-pagination.min.js"></script>
-  <!-- 插件：放大图片 -->
-  <script src="//unpkg.com/docsify/lib/plugins/zoom-image.js"></script>
-  <!-- 插件：字数统计 -->
-  <script src="//unpkg.com/docsify-count/dist/countable.js"></script>
-  <!-- 插件：侧边栏折叠插件 -->
-  <script src="//fastly.jsdelivr.net/npm/docsify-sidebar-collapse/dist/docsify-sidebar-collapse.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/docsify@4.13.1/lib/docsify.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/docsify@4.13.1/lib/plugins/search.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/docsify@4.13.1/lib/plugins/zoom-image.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/docsify-pagination@2.10.1/dist/docsify-pagination.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/docsify-count@1.1.0/dist/countable.min.js"></script>
+  <script src="./assets/js/site.js"></script>
+  <script src="./assets/js/reading-dashboard.js"></script>
 </body>
 
 </html>

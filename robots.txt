@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://firefly1984982452.github.io/doc-read/sitemap.xml

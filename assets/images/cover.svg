@@ -1,0 +1,82 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000" role="img" aria-labelledby="title desc">
+  <title id="title">阳光、书架与一本打开的书</title>
+  <desc id="desc">温暖米白色书房中，阳光落在书架、植物与打开的书上。</desc>
+  <defs>
+    <linearGradient id="paper" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#faf5e9"/>
+      <stop offset=".58" stop-color="#f2e6d2"/>
+      <stop offset="1" stop-color="#e8d4bb"/>
+    </linearGradient>
+    <linearGradient id="sun" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#fffdf6" stop-opacity=".9"/>
+      <stop offset="1" stop-color="#f3c982" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="wood" x1="0" x2="1">
+      <stop stop-color="#9b6241"/>
+      <stop offset=".5" stop-color="#bb8058"/>
+      <stop offset="1" stop-color="#865137"/>
+    </linearGradient>
+    <linearGradient id="page" x1="0" y1="0" x2="0" y2="1">
+      <stop stop-color="#fffdf4"/>
+      <stop offset="1" stop-color="#ead9b7"/>
+    </linearGradient>
+    <filter id="soft"><feGaussianBlur stdDeviation="22"/></filter>
+  </defs>
+
+  <rect width="1600" height="1000" fill="url(#paper)"/>
+  <circle cx="1280" cy="120" r="390" fill="url(#sun)"/>
+  <path d="M1040 0h85L780 680H660zM1240 0h190L980 700H790z" fill="#fff" opacity=".25"/>
+  <circle cx="1250" cy="350" r="260" fill="#f3c87e" opacity=".2" filter="url(#soft)"/>
+
+  <g transform="translate(1010 105)">
+    <rect width="455" height="515" rx="8" fill="#d9b38a" opacity=".45"/>
+    <rect x="25" y="25" width="405" height="465" rx="3" fill="#f8efe0" stroke="#9b6748" stroke-width="8"/>
+    <path d="M29 175h397M29 330h397" stroke="#9b6748" stroke-width="8"/>
+    <g>
+      <rect x="50" y="64" width="40" height="106" rx="3" fill="#8129d0"/>
+      <rect x="98" y="82" width="57" height="88" rx="3" fill="#65508a"/>
+      <rect x="164" y="52" width="35" height="118" rx="3" fill="#d39a50"/>
+      <rect x="208" y="76" width="72" height="94" rx="3" fill="#745849"/>
+      <rect x="289" y="58" width="48" height="112" rx="3" fill="#9b5ad0"/>
+      <rect x="346" y="88" width="54" height="82" rx="3" fill="#77708c"/>
+      <rect x="52" y="214" width="58" height="111" rx="3" fill="#554570"/>
+      <rect x="119" y="238" width="36" height="87" rx="3" fill="#c27d4c"/>
+      <rect x="164" y="205" width="68" height="120" rx="3" fill="#7022b8"/>
+      <rect x="241" y="229" width="45" height="96" rx="3" fill="#d0ab6f"/>
+      <rect x="295" y="215" width="74" height="110" rx="3" fill="#76678b"/>
+      <rect x="378" y="252" width="29" height="73" rx="3" fill="#8e6349"/>
+      <rect x="52" y="370" width="42" height="115" rx="3" fill="#9b43d2"/>
+      <rect x="103" y="397" width="70" height="88" rx="3" fill="#6e6182"/>
+      <rect x="182" y="359" width="37" height="126" rx="3" fill="#ca9757"/>
+      <rect x="228" y="384" width="60" height="101" rx="3" fill="#895443"/>
+      <rect x="297" y="366" width="48" height="119" rx="3" fill="#5a4774"/>
+      <rect x="354" y="402" width="54" height="83" rx="3" fill="#8741bd"/>
+    </g>
+  </g>
+
+  <g transform="translate(850 500)">
+    <path d="M350 195c-20-117 17-210 110-279 9 103-23 191-110 279Z" fill="#50745d"/>
+    <path d="M356 192c45-104 118-164 219-178-32 104-104 164-219 178Z" fill="#78916f"/>
+    <path d="M347 194c-70-72-151-103-244-91 53 85 135 118 244 91Z" fill="#63816b"/>
+    <path d="M350 184v125" stroke="#3d634f" stroke-width="10"/>
+    <path d="M257 286h188l-24 133H281z" fill="#7d32b4"/>
+  </g>
+
+  <path d="M0 760c470-42 1008-29 1600-68v308H0z" fill="url(#wood)"/>
+  <path d="M0 825c460-25 990 35 1600-26M0 930c590-44 1060 28 1600-31" fill="none" stroke="#6e412d" stroke-opacity=".22" stroke-width="5"/>
+  <ellipse cx="1080" cy="892" rx="365" ry="55" fill="#71432f" opacity=".26"/>
+
+  <g transform="translate(760 700)">
+    <path d="M350 128C263 55 147 35 24 66c68 23 114 79 143 164 79-20 139-3 183 30z" fill="url(#page)" stroke="#b99463" stroke-width="3"/>
+    <path d="M350 128c87-73 203-93 326-62-68 23-114 79-143 164-79-20-139-3-183 30z" fill="url(#page)" stroke="#b99463" stroke-width="3"/>
+    <path d="M350 128v132" stroke="#a07b4d" stroke-width="4"/>
+    <g fill="none" stroke="#a98e6b" stroke-width="3" opacity=".48">
+      <path d="M88 101c72-7 141 10 216 57M78 123c76-4 143 15 213 60M77 147c70 0 130 18 191 57"/>
+      <path d="M612 101c-72-7-141 10-216 57M622 123c-76-4-143 15-213 60M623 147c-70 0-130 18-191 57"/>
+    </g>
+  </g>
+
+  <g opacity=".14" fill="#9f7458">
+    <circle cx="110" cy="110" r="5"/><circle cx="175" cy="170" r="3"/><circle cx="310" cy="92" r="4"/><circle cx="485" cy="190" r="3"/><circle cx="630" cy="95" r="5"/><circle cx="850" cy="215" r="3"/>
+  </g>
+</svg>
