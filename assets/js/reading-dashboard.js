@@ -1,10 +1,293 @@
 (function () {
   'use strict';
 
-  var state = { year: null, sound: false, audio: null };
+  var state = { year: null, preference: null, sound: false, audio: null };
+  var dataPromise = null;
+
+  function loadText(path) {
+    var url = new URL(path, window.location.href.split('#')[0]).href;
+    return fetch(url, { cache: 'no-store' }).then(function (response) {
+      if (!response.ok) throw new Error('无法读取 ' + path);
+      return response.text();
+    }).catch(function () {
+      return new Promise(function (resolve, reject) {
+        var request = new XMLHttpRequest();
+        request.open('GET', url, true);
+        request.onload = function () {
+          if (request.status === 0 || (request.status >= 200 && request.status < 300)) resolve(request.responseText);
+          else reject(new Error('无法读取 ' + path));
+        };
+        request.onerror = reject;
+        request.send();
+      });
+    });
+  }
+
+  function parseYear(markdown, year) {
+    var months = Array(12).fill(0);
+    var currentMonth = null;
+    var entries = 0;
+    var records = [];
+    var wordMonths = new Map();
+    markdown.split('\n').forEach(function (line) {
+      var monthMatch = line.match(new RegExp(year + '-(\\d{1,2})(?!\\d)'));
+      if (monthMatch) {
+        currentMonth = Number(monthMatch[1]);
+        if (!wordMonths.has(currentMonth)) wordMonths.set(currentMonth, { explicit: null, books: 0 });
+        var monthWordMatch = line.match(/【\s*(\d+(?:\.\d+)?)\s*万字?\s*】/);
+        if (monthWordMatch) wordMonths.get(currentMonth).explicit = Number(monthWordMatch[1]);
+      }
+      var recordMatch = line.match(/^\s*-\s+\[([^\n]+?)\]\((\/docs\/(?:read|read-history)\/[^)]+?)(?:\.md)?\)\s*$/);
+      if (recordMatch) {
+        entries += 1;
+        if (currentMonth >= 1 && currentMonth <= 12) months[currentMonth - 1] += 1;
+        var label = recordMatch[1].replace(/[①②③④⑤⑥⑦⑧⑨⑩📖\u200b]/g, '').trim();
+        var bookWordMatch = label.match(/【\s*(\d+(?:\.\d+)?)\s*万(?:字)?(?:[^】]*)】/);
+        if (bookWordMatch && wordMonths.has(currentMonth)) {
+          wordMonths.get(currentMonth).books += Number(bookWordMatch[1]);
+        }
+        var titleMatch = label.match(/《[^》]+》/);
+        var title = titleMatch ? titleMatch[0] : label.replace(/【[^】]*】/g, '').trim();
+        var author = titleMatch
+          ? label.slice(label.indexOf(title) + title.length).replace(/【[^】]*】/g, '').trim()
+          : '';
+        records.push({ year: year, month: currentMonth, title: title, author: author, path: recordMatch[2] });
+      }
+    });
+    var wordParts = Array.from(wordMonths.values()).map(function (item) {
+      return typeof item.explicit === 'number' ? item.explicit : item.books;
+    }).filter(function (value) { return value > 0; });
+    var wordWan = wordParts.length
+      ? wordParts.reduce(function (sum, value) { return sum + value; }, 0)
+      : null;
+    var wordEquation = wordParts.length ? wordParts.join('+') + '=' + wordWan + '万字' : '';
+    return { year: year, entries: entries, wordWan: wordWan, wordEquation: wordEquation, months: months, records: records };
+  }
+
+  function normalizeReadingPath(value) {
+    return String(value || '').replace(/^\//, '').replace(/\.md$/, '').split(/[?#]/)[0];
+  }
+
+  function preferenceCategory(section, subsection) {
+    if (/中国文学|外国文学/.test(section)) return '文学类';
+    if (/古文典籍/.test(section)) return '历史典籍';
+    if (/习惯|学习|阅读/.test(subsection)) return '方法类';
+    if (/思维|心理|关系/.test(subsection)) return '思维心理';
+    return '';
+  }
+
+  function parseLibraryPreferences(markdown) {
+    var categories = new Map();
+    var section = '';
+    var subsection = '';
+    markdown.split('\n').forEach(function (line) {
+      var h2 = line.match(/^##\s+(.+)/);
+      var h3 = line.match(/^###\s+(.+)/);
+      if (h2) { section = h2[1].trim(); subsection = ''; }
+      if (h3) subsection = h3[1].trim();
+      var category = preferenceCategory(section, subsection);
+      if (!category) return;
+      Array.from(line.matchAll(/\[[^\]]+\]\((\/docs\/(?:read|read-history)\/[^)]+?)(?:\.md)?\)/g)).forEach(function (match) {
+        categories.set(normalizeReadingPath(match[1]), category);
+      });
+    });
+    return categories;
+  }
+
+  function inferPreference(record, libraryPreferences) {
+    var known = libraryPreferences.get(normalizeReadingPath(record.path));
+    if (known) return known;
+    var value = record.title + ' ' + record.author + ' ' + record.path;
+    if (/史记|汉书|后汉书|二十四史|黄帝内经|庄子|春秋|翦商|历史|中华史|明朝|太平公主/.test(value)) return '历史典籍';
+    if (/多囊|暴食|控糖|养阳气|好牙|身体|肠子|健康|自控力|习惯|练习|学习|阅读|自学|成长|高效能|最重要的事|时间|整理|职业|方法|指南/.test(value)) return '方法类';
+    if (/思考|心流|心理|亲密关系|非暴力沟通|原生家庭|认知|心智|人生的智慧|身份的焦虑|跳出自我|事实|多巴胺/.test(value)) return '思维心理';
+    if (/生活|家庭|教育|孩子|玩具|带夫修行/.test(value)) return '生活教育';
+    if (/《[^》]+》/.test(record.title)) return '文学类';
+    return '其他';
+  }
+
+  function discoverReadingData() {
+    if (dataPromise) return dataPromise;
+    dataPromise = Promise.all([
+      loadText('_sidebar.md').catch(function () { return ''; }),
+      loadText('docs/library.md').catch(function () { return ''; })
+    ]).then(function (sources) {
+      var sidebar = sources[0];
+      var libraryPreferences = parseLibraryPreferences(sources[1]);
+      var discovered = Array.from(sidebar.matchAll(/\/docs\/years\/(\d{4})/g)).map(function (match) { return Number(match[1]); });
+      (window.DOC_READ_SEARCH_PATHS || []).forEach(function (path) {
+        var match = String(path).match(/\/docs\/years\/(\d{4})\.md$/);
+        if (match) discovered.push(Number(match[1]));
+      });
+      var currentYear = new Date().getFullYear();
+      discovered.push(currentYear, currentYear + 1);
+      var years = Array.from(new Set(discovered)).sort(function (a, b) { return a - b; });
+      return Promise.all(years.map(function (item) {
+        return loadText('docs/years/' + item + '.md')
+          .then(function (markdown) { return parseYear(markdown, item); })
+          .catch(function () { return null; });
+      })).then(function (yearRows) {
+        yearRows.filter(Boolean).forEach(function (yearRow) {
+          yearRow.records.forEach(function (record) {
+            record.preference = inferPreference(record, libraryPreferences);
+          });
+        });
+        return yearRows;
+      });
+    }).then(function (years) {
+      return { years: years.filter(Boolean) };
+    });
+    return dataPromise;
+  }
+
+  function chineseCount(value) {
+    var digits = ['零', '一', '二', '三', '四', '五', '六', '七', '八', '九'];
+    if (value < 10) return digits[value];
+    if (value < 20) return '十' + (value === 10 ? '' : digits[value - 10]);
+    return String(value);
+  }
 
   function formatNumber(value) {
     return new Intl.NumberFormat('zh-CN').format(value);
+  }
+
+  function escapeHtml(value) {
+    return String(value).replace(/[&<>"']/g, function (character) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character];
+    });
+  }
+
+  function latestRecords(data, limit) {
+    for (var index = data.years.length - 1; index >= 0; index -= 1) {
+      var records = data.years[index].records || [];
+      if (!records.length) continue;
+      var latestMonth = Math.max.apply(null, records.map(function (record) { return record.month || 0; }));
+      return records.filter(function (record) { return record.month === latestMonth; }).reverse().slice(0, limit);
+    }
+    return [];
+  }
+
+  function readingRoute(path) {
+    return '#' + path.replace(/\.md$/, '');
+  }
+
+  function recordMarkup(record, options) {
+    var route = readingRoute(record.path);
+    var author = record.author ? '<span> · ' + escapeHtml(record.author) + '</span>' : '';
+    var date = options.showDate ? '<small>' + record.year + ' 年 ' + record.month + ' 月</small>' : '';
+    return '<li><strong><a href="' + escapeHtml(route) + '">' + escapeHtml(record.title) + '</a></strong>' +
+      author + date + '<a class="reading-note-link" href="' + escapeHtml(route) + '">阅读笔记 →</a></li>';
+  }
+
+  function mountRecentReading() {
+    var root = document.getElementById('recent-reading-list');
+    if (!root || root.dataset.mounted === 'true' || root.dataset.loading === 'true') return;
+    root.dataset.loading = 'true';
+    discoverReadingData().then(function (data) {
+      if (!document.body.contains(root)) return;
+      var records = latestRecords(data, 4);
+      if (!records.length) throw new Error('没有找到最新阅读记录');
+      root.dataset.loading = 'false';
+      root.dataset.mounted = 'true';
+      root.innerHTML = '<ul>' + records.map(function (record) { return recordMarkup(record, { showDate: true }); }).join('') + '</ul>';
+    }).catch(function () {
+      if (!document.body.contains(root)) return;
+      root.dataset.loading = 'false';
+      root.innerHTML = '<p class="reading-list-loading">最新阅读记录读取失败，请刷新页面重试。</p>';
+    });
+  }
+
+  function yearLinks(data, descending) {
+    var years = data.years.slice();
+    if (descending) years.reverse();
+    return years.map(function (item) {
+      return '<a href="#/docs/years/' + item.year + '">' + item.year + '</a>';
+    }).join('<span aria-hidden="true"> · </span>');
+  }
+
+  function mountArchiveNavigation() {
+    discoverReadingData().then(function (data) {
+      if (!data.years.length) return;
+      var first = data.years[0].year;
+      var latest = data.years[data.years.length - 1].year;
+      document.querySelectorAll('[data-archive-start]').forEach(function (element) { element.textContent = first; });
+      document.querySelectorAll('[data-archive-range]').forEach(function (element) { element.textContent = first + '—' + latest; });
+
+      ['home-year-list', 'library-year-list'].forEach(function (id) {
+        var root = document.getElementById(id);
+        if (root) root.innerHTML = yearLinks(data, true);
+      });
+
+      document.querySelectorAll('.app-nav a').forEach(function (link) {
+        if (link.textContent.trim() === '年度归档') link.setAttribute('href', '#/docs/years/' + latest);
+      });
+
+      document.querySelectorAll('.sidebar-nav strong').forEach(function (heading) {
+        if (heading.textContent.trim() !== '年度归档') return;
+        var paragraph = heading.closest('p');
+        var list = paragraph && paragraph.nextElementSibling;
+        if (!list || list.tagName !== 'UL') {
+          var section = heading.closest('li');
+          list = section && section.querySelector(':scope > ul');
+        }
+        if (!list) return;
+        list.innerHTML = data.years.slice().reverse().map(function (item) {
+          return '<li><a href="#/docs/years/' + item.year + '">' + item.year + '</a></li>';
+        }).join('');
+      });
+    });
+  }
+
+  function mountLatestReadingPage() {
+    var root = document.getElementById('latest-reading-page');
+    if (!root || root.dataset.loading === 'true' || root.dataset.mounted === 'true') return;
+    root.dataset.loading = 'true';
+    discoverReadingData().then(function (data) {
+      if (!document.body.contains(root)) return;
+      var latestYear = data.years.slice().reverse().find(function (item) { return item.records && item.records.length; });
+      if (!latestYear) throw new Error('没有找到最近阅读');
+      var groups = [];
+      latestYear.records.forEach(function (record) {
+        var group = groups.find(function (item) { return item.month === record.month; });
+        if (!group) { group = { month: record.month, records: [] }; groups.push(group); }
+        group.records.push(record);
+      });
+      groups.sort(function (a, b) { return b.month - a.month; });
+      root.innerHTML = groups.map(function (group) {
+        return '<section class="latest-month"><h2>' + latestYear.year + ' 年 ' + group.month + ' 月</h2><ul>' +
+          group.records.slice().reverse().map(function (record) { return recordMarkup(record, { showDate: false }); }).join('') +
+          '</ul></section>';
+      }).join('');
+      root.dataset.loading = 'false';
+      root.dataset.mounted = 'true';
+    }).catch(function () {
+      if (!document.body.contains(root)) return;
+      root.dataset.loading = 'false';
+      root.innerHTML = '<p class="reading-list-loading">最近阅读读取失败，请刷新页面重试。</p>';
+    });
+  }
+
+  function mountYearWordTotal() {
+    var routeMatch = window.location.hash.match(/^#\/docs\/years\/(\d{4})(?:\.md)?(?:[?#]|$)/);
+    if (!routeMatch) return;
+    var article = document.querySelector('.markdown-section');
+    if (!article) return;
+    discoverReadingData().then(function (data) {
+      if (!document.body.contains(article)) return;
+      var selected = data.years.find(function (item) { return String(item.year) === routeMatch[1]; });
+      if (!selected || !selected.wordEquation) return;
+      var heading = Array.from(article.querySelectorAll('h2')).find(function (element) {
+        return /^(?:总)?字数$/.test(element.textContent.trim());
+      });
+      if (!heading) return;
+      var total = heading.nextElementSibling;
+      if (!total || total.tagName !== 'P') {
+        total = document.createElement('p');
+        heading.insertAdjacentElement('afterend', total);
+      }
+      total.classList.add('year-word-total');
+      total.textContent = selected.wordEquation;
+    });
   }
 
   function createTone() {
@@ -29,6 +312,7 @@
   }
 
   function dashboardMarkup(data) {
+    var first = data.years[0];
     var latest = data.years[data.years.length - 1];
     var yearButtons = data.years.map(function (item) {
       var active = String(state.year) === String(item.year);
@@ -36,7 +320,7 @@
     }).join('');
     return [
       '<div class="reading-dashboard-head">',
-        '<div><p class="reading-dashboard-eyebrow">READING IN NUMBERS</p><h3>九年阅读轨迹</h3></div>',
+        '<div><p class="reading-dashboard-eyebrow">READING IN NUMBERS</p><h3>' + chineseCount(data.years.length) + '年阅读轨迹</h3></div>',
         '<button class="reading-sound" type="button" aria-pressed="false" aria-label="开启图表交互声效"><span aria-hidden="true">♪</span> 声效关闭</button>',
       '</div>',
       '<div class="reading-year-controls" role="group" aria-label="选择统计年份">',
@@ -45,12 +329,12 @@
       '<div class="reading-metrics">',
         '<div><div class="reading-metric-value"><span data-metric="entries">0</span><em>本</em></div><small>年度清单阅读记录</small></div>',
         '<div><div class="reading-metric-value"><span data-metric="words">—</span><em>万</em></div><small>已记录阅读字数</small></div>',
-        '<div><div class="reading-metric-value"><span data-metric="daily">—</span><em>字</em></div><small>平均每天阅读</small></div>',
+        '<div><div class="reading-metric-value"><span data-metric="daily">—</span><em>万字</em></div><small>平均每天阅读</small></div>',
         '<div><div class="reading-metric-value"><span data-metric="active">0</span><em>月</em></div><small>有阅读记录的月份</small></div>',
       '</div>',
       '<div class="reading-chart-block">',
         '<div class="reading-chart-title"><strong>年度阅读节奏</strong><span>点击柱形选择年份</span></div>',
-        '<div class="reading-bars" role="img" aria-label="2018 至 ' + latest.year + ' 年每年阅读书目数量"></div>',
+        '<div class="reading-bars" role="img" aria-label="' + first.year + ' 至 ' + latest.year + ' 年每年阅读书目数量"></div>',
       '</div>',
       '<div class="reading-chart-grid">',
         '<div class="reading-chart-block">',
@@ -63,6 +347,14 @@
           '<svg class="reading-word-chart" viewBox="0 0 460 210" role="img" aria-label="年度阅读字数趋势图"></svg>',
         '</div>',
       '</div>',
+      '<div class="reading-chart-block reading-preference-block">',
+        '<div class="reading-chart-title"><strong>我的阅读偏好</strong><span data-preference-caption>按阅读记录统计</span></div>',
+        '<div class="reading-preferences">',
+          '<svg class="reading-preference-pie" viewBox="0 0 220 220" role="img" aria-label="阅读类型偏好饼图"></svg>',
+          '<div class="reading-preference-legend" role="list" aria-label="阅读类型偏好图例"></div>',
+        '</div>',
+        '<div class="reading-preference-detail" data-preference-detail aria-live="polite">点击分类查看包含的书目</div>',
+      '</div>',
       '<p class="reading-insight" data-reading-insight></p>'
     ].join('');
   }
@@ -71,7 +363,7 @@
     return state.year === 'all' ? data.years : data.years.filter(function (item) { return String(item.year) === String(state.year); });
   }
 
-  function animateMetric(element, target, suffix) {
+  function animateMetric(element, target, suffix, decimals) {
     if (typeof target !== 'number') {
       element.textContent = '—';
       return;
@@ -81,7 +373,10 @@
     function frame(now) {
       var progress = Math.min((now - start) / duration, 1);
       var eased = 1 - Math.pow(1 - progress, 3);
-      element.textContent = formatNumber(Math.round(target * eased)) + (suffix || '');
+      var value = target * eased;
+      element.textContent = (decimals
+        ? value.toLocaleString('zh-CN', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })
+        : formatNumber(Math.round(value))) + (suffix || '');
       if (progress < 1) requestAnimationFrame(frame);
     }
     requestAnimationFrame(frame);
@@ -89,6 +384,7 @@
 
   function renderBars(root, data) {
     var max = Math.max.apply(null, data.years.map(function (item) { return item.entries; }));
+    root.querySelector('.reading-bars').style.setProperty('--reading-year-count', data.years.length);
     root.querySelector('.reading-bars').innerHTML = data.years.map(function (item) {
       var active = String(state.year) === String(item.year);
       var height = Math.max(12, Math.round(item.entries / max * 100));
@@ -132,6 +428,67 @@
     svg.innerHTML = grid + '<polyline class="word-line" points="' + points + '" />' + marks;
   }
 
+  function renderPreferences(root, rows) {
+    var records = rows.reduce(function (all, item) { return all.concat(item.records || []); }, []);
+    var groups = new Map();
+    records.forEach(function (record) {
+      var category = record.preference || '其他';
+      if (!groups.has(category)) groups.set(category, []);
+      groups.get(category).push(record);
+    });
+    var ranked = Array.from(groups.entries()).sort(function (a, b) {
+      return b[1].length - a[1].length || a[0].localeCompare(b[0], 'zh-CN');
+    });
+    if (state.preference && !groups.has(state.preference)) state.preference = null;
+    var total = records.length || 1;
+    var startAngle = -90;
+    var slices = ranked.map(function (item, index) {
+      var category = item[0];
+      var count = item[1].length;
+      var active = state.preference === category;
+      var percentage = Math.max(1, Math.round(count / total * 100));
+      var sweep = count / total * 360;
+      var endAngle = startAngle + sweep;
+      var largeArc = sweep > 180 ? 1 : 0;
+      var point = function (angle, radius) {
+        var radians = angle * Math.PI / 180;
+        return { x: 110 + radius * Math.cos(radians), y: 110 + radius * Math.sin(radians) };
+      };
+      var start = point(startAngle, 94);
+      var end = point(endAngle, 94);
+      var middle = point(startAngle + sweep / 2, 59);
+      var shape = sweep >= 359.999
+        ? '<circle cx="110" cy="110" r="94" />'
+        : '<path d="M 110 110 L ' + start.x.toFixed(2) + ' ' + start.y.toFixed(2) + ' A 94 94 0 ' + largeArc + ' 1 ' + end.x.toFixed(2) + ' ' + end.y.toFixed(2) + ' Z" />';
+      var label = percentage >= 7
+        ? '<text x="' + middle.x.toFixed(2) + '" y="' + middle.y.toFixed(2) + '" text-anchor="middle" dominant-baseline="central">' + percentage + '%</text>'
+        : '';
+      startAngle = endAngle;
+      return '<g class="reading-pie-slice pref-color-' + (index % 6) + (active ? ' is-active' : '') + '" data-reading-preference="' + escapeHtml(category) + '" tabindex="0" role="button" aria-pressed="' + active + '" aria-label="' + escapeHtml(category) + '，' + count + ' 本，占 ' + percentage + '%">' + shape + label + '</g>';
+    }).join('');
+    root.querySelector('.reading-preference-pie').innerHTML = slices || '<circle class="reading-pie-empty" cx="110" cy="110" r="94" />';
+    root.querySelector('.reading-preference-legend').innerHTML = ranked.map(function (item, index) {
+      var category = item[0];
+      var count = item[1].length;
+      var percentage = Math.max(1, Math.round(count / total * 100));
+      var active = state.preference === category;
+      return '<button type="button" role="listitem" data-reading-preference="' + escapeHtml(category) + '" aria-pressed="' + active + '">' +
+        '<i class="pref-color-' + (index % 6) + '" aria-hidden="true"></i><span><strong>' + escapeHtml(category) + '</strong><small>' + count + ' 本 · ' + percentage + '%</small></span>' +
+      '</button>';
+    }).join('');
+    var detail = root.querySelector('[data-preference-detail]');
+    if (!state.preference) {
+      detail.innerHTML = ranked.length ? '偏好最明显的是 <strong>' + escapeHtml(ranked[0][0]) + '</strong>，点击任一分类可查看书目。' : '当前范围没有可统计的阅读记录。';
+      return;
+    }
+    var selected = groups.get(state.preference) || [];
+    var uniqueTitles = Array.from(new Set(selected.map(function (record) { return record.title; })));
+    var visibleTitles = uniqueTitles.slice(0, 16);
+    detail.innerHTML = '<strong>' + escapeHtml(state.preference) + '</strong><span>' + visibleTitles.map(function (title) {
+      return '<em>' + escapeHtml(title) + '</em>';
+    }).join('') + (uniqueTitles.length > visibleTitles.length ? '<em>另有 ' + (uniqueTitles.length - visibleTitles.length) + ' 本</em>' : '') + '</span>';
+  }
+
   function update(root, data) {
     var rows = selectedRows(data);
     var entries = rows.reduce(function (sum, item) { return sum + item.entries; }, 0);
@@ -145,7 +502,7 @@
         : (new Date(item.year, 1, 29).getMonth() === 1 ? 366 : 365);
       return sum + yearDays;
     }, 0);
-    var dailyWords = words === null ? null : Math.round(words * 10000 / days);
+    var dailyWordWan = words === null ? null : words / days;
     var months = Array(12).fill(0).map(function (_, index) {
       return rows.reduce(function (sum, item) { return sum + item.months[index]; }, 0);
     });
@@ -153,48 +510,84 @@
     var peak = months.indexOf(Math.max.apply(null, months)) + 1;
     animateMetric(root.querySelector('[data-metric="entries"]'), entries);
     animateMetric(root.querySelector('[data-metric="words"]'), words);
-    animateMetric(root.querySelector('[data-metric="daily"]'), dailyWords);
+    animateMetric(root.querySelector('[data-metric="daily"]'), dailyWordWan, '', 1);
     animateMetric(root.querySelector('[data-metric="active"]'), activeMonths);
     root.querySelectorAll('[data-reading-year]').forEach(function (button) {
       button.setAttribute('aria-pressed', String(button.dataset.readingYear) === String(state.year));
     });
     root.querySelector('[data-habit-caption]').textContent = state.year === 'all' ? '全部年份累计' : state.year + ' 年';
+    var firstWordYear = data.years.find(function (item) { return typeof item.wordWan === 'number'; });
     root.querySelector('[data-reading-insight]').textContent = state.year === 'all'
-      ? '从现有记录看，' + peak + ' 月是最常集中阅读的月份；字数统计自 2023 年开始有完整记录。'
+      ? '从现有记录看，' + peak + ' 月是最常集中阅读的月份；字数统计自 ' + (firstWordYear ? firstWordYear.year : '有记录的年份') + ' 年开始有完整记录。'
       : state.year + ' 年共留下 ' + entries + ' 本阅读记录，活跃于 ' + activeMonths + ' 个月，阅读最集中在 ' + peak + ' 月。';
     renderBars(root, data);
     renderHeatmap(root, months);
     renderWordChart(root, data);
+    root.querySelector('[data-preference-caption]').textContent = state.year === 'all' ? '全部年份累计' : state.year + ' 年';
+    renderPreferences(root, rows);
   }
 
   function mountDashboard() {
     var root = document.getElementById('reading-dashboard');
-    var data = window.DOC_READ_STATS;
-    if (!root || !data || root.dataset.mounted === 'true') return;
-    if (state.year === null && data.years.length) state.year = String(data.years[data.years.length - 1].year);
-    root.dataset.mounted = 'true';
-    root.innerHTML = dashboardMarkup(data);
-    root.addEventListener('click', function (event) {
-      var yearButton = event.target.closest('[data-reading-year]');
-      var soundButton = event.target.closest('.reading-sound');
-      if (yearButton) {
-        state.year = yearButton.dataset.readingYear;
-        createTone();
-        update(root, data);
+    if (!root || root.dataset.mounted === 'true' || root.dataset.loading === 'true') return;
+    root.dataset.loading = 'true';
+    discoverReadingData().then(function (data) {
+      if (!data.years.length) throw new Error('没有找到年度阅读数据');
+      if (!document.body.contains(root)) return;
+      if (state.year === null || !data.years.some(function (item) { return String(item.year) === String(state.year); })) {
+        state.year = String(data.years[data.years.length - 1].year);
       }
-      if (soundButton) {
-        state.sound = !state.sound;
-        soundButton.setAttribute('aria-pressed', state.sound);
-        soundButton.innerHTML = '<span aria-hidden="true">♪</span> 声效' + (state.sound ? '开启' : '关闭');
-        soundButton.setAttribute('aria-label', (state.sound ? '关闭' : '开启') + '图表交互声效');
-        createTone();
-      }
+      root.dataset.mounted = 'true';
+      root.dataset.loading = 'false';
+      root.innerHTML = dashboardMarkup(data);
+      root.addEventListener('click', function (event) {
+        var yearButton = event.target.closest('[data-reading-year]');
+        var soundButton = event.target.closest('.reading-sound');
+        if (yearButton) {
+          state.year = yearButton.dataset.readingYear;
+          state.preference = null;
+          createTone();
+          update(root, data);
+        }
+        var preferenceButton = event.target.closest('[data-reading-preference]');
+        if (preferenceButton) {
+          state.preference = state.preference === preferenceButton.dataset.readingPreference ? null : preferenceButton.dataset.readingPreference;
+          createTone();
+          renderPreferences(root, selectedRows(data));
+        }
+        if (soundButton) {
+          state.sound = !state.sound;
+          soundButton.setAttribute('aria-pressed', state.sound);
+          soundButton.innerHTML = '<span aria-hidden="true">♪</span> 声效' + (state.sound ? '开启' : '关闭');
+          soundButton.setAttribute('aria-label', (state.sound ? '关闭' : '开启') + '图表交互声效');
+          createTone();
+        }
+      });
+      root.addEventListener('keydown', function (event) {
+        if (event.key !== 'Enter' && event.key !== ' ') return;
+        var preferenceButton = event.target.closest('[data-reading-preference]');
+        if (!preferenceButton) return;
+        event.preventDefault();
+        preferenceButton.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      });
+      update(root, data);
+    }).catch(function () {
+      if (!document.body.contains(root)) return;
+      root.dataset.loading = 'false';
+      root.innerHTML = '<p class="reading-dashboard-loading">年度数据读取失败，请刷新页面重试。</p>';
     });
-    update(root, data);
   }
 
-  window.addEventListener('hashchange', function () { setTimeout(mountDashboard, 80); });
-  document.addEventListener('doc-read:rendered', mountDashboard);
-  document.addEventListener('DOMContentLoaded', function () { setTimeout(mountDashboard, 80); });
-  setTimeout(mountDashboard, 300);
+  function mountHomeWidgets() {
+    mountArchiveNavigation();
+    mountRecentReading();
+    mountLatestReadingPage();
+    mountYearWordTotal();
+    mountDashboard();
+  }
+
+  window.addEventListener('hashchange', function () { setTimeout(mountHomeWidgets, 80); });
+  document.addEventListener('doc-read:rendered', mountHomeWidgets);
+  document.addEventListener('DOMContentLoaded', function () { setTimeout(mountHomeWidgets, 80); });
+  setTimeout(mountHomeWidgets, 300);
 }());

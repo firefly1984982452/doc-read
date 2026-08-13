@@ -1,4 +1,4 @@
-# 全部书目
+# 全部书目 <!-- {docsify-ignore-all} -->
 
 这里按主题整理公开的阅读笔记。也可以使用左侧搜索框直接搜索书名、作者或正文内容。
 
@@ -80,6 +80,4 @@
 
 目前公开书目较多，上面精选了主要入口。可以进入[完整书目索引](/docs/catalog.md)按标题浏览，全部内容也已加入全文搜索。
 
-- [2018](/docs/years/2018.md) · [2019](/docs/years/2019.md) · [2020](/docs/years/2020.md)
-- [2021](/docs/years/2021.md) · [2022](/docs/years/2022.md) · [2023](/docs/years/2023.md)
-- [2024](/docs/years/2024.md) · [2025](/docs/years/2025.md) · [2026](/docs/years/2026.md)
+<div id="library-year-list" class="dynamic-year-list" aria-live="polite">正在读取年度归档…</div>

@@ -45,38 +45,6 @@ await fs.writeFile(
   'utf8'
 );
 
-const readingYears = [];
-for (let year = 2018; year <= new Date().getFullYear(); year += 1) {
-  const yearFile = path.join(root, `docs/years/${year}.md`);
-  try {
-    const markdown = await fs.readFile(yearFile, 'utf8');
-    const months = Array(12).fill(0);
-    let currentMonth = null;
-    let entries = 0;
-    for (const line of markdown.split('\n')) {
-      const monthMatch = line.match(new RegExp(`${year}-(\\d{1,2})(?!\\d)`));
-      if (monthMatch) currentMonth = Number(monthMatch[1]);
-      if (/^\s*-\s+.*\]\(\/docs\//.test(line)) {
-        entries += 1;
-        if (currentMonth >= 1 && currentMonth <= 12) months[currentMonth - 1] += 1;
-      }
-    }
-    const wordSection = markdown.match(/^##\s+(?:总)?字数\s*$([\s\S]*?)(?=^##\s|^-\s|\z)/m)?.[1] || '';
-    const equation = wordSection.match(/([\d+]+)(?:\s*=\s*(\d+)\s*万字?)?/);
-    const wordWan = equation
-      ? Number(equation[2] || equation[1].split('+').reduce((sum, value) => sum + Number(value || 0), 0))
-      : null;
-    readingYears.push({ year, entries, wordWan, months });
-  } catch (error) {
-    if (error.code !== 'ENOENT') throw error;
-  }
-}
-await fs.writeFile(
-  path.join(root, 'assets/js/reading-data.js'),
-  `// 此文件由 npm run generate 根据 docs/years 自动生成，请勿手动编辑。\nwindow.DOC_READ_STATS = ${JSON.stringify({ years: readingYears }, null, 2)};\n`,
-  'utf8'
-);
-
 const noteFiles = markdownFiles.filter((file) =>
   file.startsWith('docs/read/') || file.startsWith('docs/read-history/')
 );
@@ -112,4 +80,4 @@ const sitemap = [
 ].join('\n');
 await fs.writeFile(path.join(root, 'sitemap.xml'), sitemap, 'utf8');
 
-console.log(`Generated search index (${searchPaths.length} paths), reading statistics (${readingYears.length} years), catalog (${catalogItems.length} notes), and sitemap (${uniqueRoutes.length} routes).`);
+console.log(`Generated search index (${searchPaths.length} paths), catalog (${catalogItems.length} notes), and sitemap (${uniqueRoutes.length} routes).`);

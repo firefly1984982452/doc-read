@@ -1,5 +1,5 @@
 - [首页](/)
 - [最近阅读](/docs/latest.md)
 - [全部书目](/docs/library.md)
-- [年度归档](/docs/years/2026.md)
+- [年度归档](#)
 - [关于](/docs/think/about.md)

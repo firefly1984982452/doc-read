@@ -1,5 +1,5 @@
 <div class="home-hero">
-  <p class="eyebrow">READING ARCHIVE · 2018—2026</p>
+  <p class="eyebrow">READING ARCHIVE · <span data-archive-range>正在读取年份…</span></p>
 
   # 把读过的书，慢慢变成自己
 
@@ -10,13 +10,8 @@
 
 ## 最近完成
 
-<div class="reading-list">
-
-- **《当下的力量》** · 埃克哈特·托利：在当下寻找摆脱思维控制的入口。 [阅读笔记 →](docs/read/《当下的力量》.md)
-- **《窄门》** · 安德烈·纪德：爱、克制与精神理想之间的错位。 [阅读笔记 →](docs/read/《窄门》.md)
-- **《布鲁克林有棵树》** · 贝蒂·史密斯：一个女孩在贫困生活中的成长与坚韧。 [阅读笔记 →](docs/read/《布鲁克林有棵树》.md)
-- **《跳出自我的盒子》** · 亚宾泽协会：从自我欺骗出发，重新理解人与关系。 [阅读笔记 →](docs/read/《跳出自我的盒子》.md)
-
+<div id="recent-reading-list" class="reading-list" aria-live="polite">
+  <p class="reading-list-loading">正在读取最新阅读记录…</p>
 </div>
 
 [查看全部最近阅读 →](docs/latest.md)
@@ -40,6 +35,6 @@
 
 ## 按年份回看
 
-[2026](docs/years/2026.md) · [2025](docs/years/2025.md) · [2024](docs/years/2024.md) · [2023](docs/years/2023.md) · [2022](docs/years/2022.md) · [2021](docs/years/2021.md) · [2020](docs/years/2020.md) · [2019](docs/years/2019.md) · [2018](docs/years/2018.md)
+<div id="home-year-list" class="dynamic-year-list" aria-live="polite">正在读取年度归档…</div>
 
 > 阅读是一件很私人的事。带着目的读，或只因好奇翻开，都值得留下当时的理解。
