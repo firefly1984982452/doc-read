@@ -4,139 +4,11 @@
   var state = { year: null, preference: null, sound: false, audio: null };
   var dataPromise = null;
 
-  function loadText(path) {
-    var url = new URL(path, window.location.href.split('#')[0]).href;
-    return fetch(url, { cache: 'no-store' }).then(function (response) {
-      if (!response.ok) throw new Error('无法读取 ' + path);
-      return response.text();
-    }).catch(function () {
-      return new Promise(function (resolve, reject) {
-        var request = new XMLHttpRequest();
-        request.open('GET', url, true);
-        request.onload = function () {
-          if (request.status === 0 || (request.status >= 200 && request.status < 300)) resolve(request.responseText);
-          else reject(new Error('无法读取 ' + path));
-        };
-        request.onerror = reject;
-        request.send();
-      });
-    });
-  }
-
-  function parseYear(markdown, year) {
-    var months = Array(12).fill(0);
-    var currentMonth = null;
-    var entries = 0;
-    var records = [];
-    var wordMonths = new Map();
-    markdown.split('\n').forEach(function (line) {
-      var monthMatch = line.match(new RegExp(year + '-(\\d{1,2})(?!\\d)'));
-      if (monthMatch) {
-        currentMonth = Number(monthMatch[1]);
-        if (!wordMonths.has(currentMonth)) wordMonths.set(currentMonth, { explicit: null, books: 0 });
-        var monthWordMatch = line.match(/【\s*(\d+(?:\.\d+)?)\s*万字?\s*】/);
-        if (monthWordMatch) wordMonths.get(currentMonth).explicit = Number(monthWordMatch[1]);
-      }
-      var recordMatch = line.match(/^\s*-\s+\[([^\n]+?)\]\((\/docs\/(?:read|read-history)\/[^)]+?)(?:\.md)?\)\s*$/);
-      if (recordMatch) {
-        entries += 1;
-        if (currentMonth >= 1 && currentMonth <= 12) months[currentMonth - 1] += 1;
-        var label = recordMatch[1].replace(/[①②③④⑤⑥⑦⑧⑨⑩📖\u200b]/g, '').trim();
-        var bookWordMatch = label.match(/【\s*(\d+(?:\.\d+)?)\s*万(?:字)?(?:[^】]*)】/);
-        if (bookWordMatch && wordMonths.has(currentMonth)) {
-          wordMonths.get(currentMonth).books += Number(bookWordMatch[1]);
-        }
-        var titleMatch = label.match(/《[^》]+》/);
-        var title = titleMatch ? titleMatch[0] : label.replace(/【[^】]*】/g, '').trim();
-        var author = titleMatch
-          ? label.slice(label.indexOf(title) + title.length).replace(/【[^】]*】/g, '').trim()
-          : '';
-        records.push({ year: year, month: currentMonth, title: title, author: author, path: recordMatch[2] });
-      }
-    });
-    var wordParts = Array.from(wordMonths.values()).map(function (item) {
-      return typeof item.explicit === 'number' ? item.explicit : item.books;
-    }).filter(function (value) { return value > 0; });
-    var wordWan = wordParts.length
-      ? wordParts.reduce(function (sum, value) { return sum + value; }, 0)
-      : null;
-    var wordEquation = wordParts.length ? wordParts.join('+') + '=' + wordWan + '万字' : '';
-    return { year: year, entries: entries, wordWan: wordWan, wordEquation: wordEquation, months: months, records: records };
-  }
-
-  function normalizeReadingPath(value) {
-    return String(value || '').replace(/^\//, '').replace(/\.md$/, '').split(/[?#]/)[0];
-  }
-
-  function preferenceCategory(section, subsection) {
-    if (/中国文学|外国文学/.test(section)) return '文学类';
-    if (/古文典籍/.test(section)) return '历史典籍';
-    if (/习惯|学习|阅读/.test(subsection)) return '方法类';
-    if (/思维|心理|关系/.test(subsection)) return '思维心理';
-    return '';
-  }
-
-  function parseLibraryPreferences(markdown) {
-    var categories = new Map();
-    var section = '';
-    var subsection = '';
-    markdown.split('\n').forEach(function (line) {
-      var h2 = line.match(/^##\s+(.+)/);
-      var h3 = line.match(/^###\s+(.+)/);
-      if (h2) { section = h2[1].trim(); subsection = ''; }
-      if (h3) subsection = h3[1].trim();
-      var category = preferenceCategory(section, subsection);
-      if (!category) return;
-      Array.from(line.matchAll(/\[[^\]]+\]\((\/docs\/(?:read|read-history)\/[^)]+?)(?:\.md)?\)/g)).forEach(function (match) {
-        categories.set(normalizeReadingPath(match[1]), category);
-      });
-    });
-    return categories;
-  }
-
-  function inferPreference(record, libraryPreferences) {
-    var known = libraryPreferences.get(normalizeReadingPath(record.path));
-    if (known) return known;
-    var value = record.title + ' ' + record.author + ' ' + record.path;
-    if (/史记|汉书|后汉书|二十四史|黄帝内经|庄子|春秋|翦商|历史|中华史|明朝|太平公主/.test(value)) return '历史典籍';
-    if (/多囊|暴食|控糖|养阳气|好牙|身体|肠子|健康|自控力|习惯|练习|学习|阅读|自学|成长|高效能|最重要的事|时间|整理|职业|方法|指南/.test(value)) return '方法类';
-    if (/思考|心流|心理|亲密关系|非暴力沟通|原生家庭|认知|心智|人生的智慧|身份的焦虑|跳出自我|事实|多巴胺/.test(value)) return '思维心理';
-    if (/生活|家庭|教育|孩子|玩具|带夫修行/.test(value)) return '生活教育';
-    if (/《[^》]+》/.test(record.title)) return '文学类';
-    return '其他';
-  }
-
   function discoverReadingData() {
     if (dataPromise) return dataPromise;
-    dataPromise = Promise.all([
-      loadText('_sidebar.md').catch(function () { return ''; }),
-      loadText('docs/library.md').catch(function () { return ''; })
-    ]).then(function (sources) {
-      var sidebar = sources[0];
-      var libraryPreferences = parseLibraryPreferences(sources[1]);
-      var discovered = Array.from(sidebar.matchAll(/\/docs\/years\/(\d{4})/g)).map(function (match) { return Number(match[1]); });
-      (window.DOC_READ_SEARCH_PATHS || []).forEach(function (path) {
-        var match = String(path).match(/\/docs\/years\/(\d{4})\.md$/);
-        if (match) discovered.push(Number(match[1]));
-      });
-      var currentYear = new Date().getFullYear();
-      discovered.push(currentYear, currentYear + 1);
-      var years = Array.from(new Set(discovered)).sort(function (a, b) { return a - b; });
-      return Promise.all(years.map(function (item) {
-        return loadText('docs/years/' + item + '.md')
-          .then(function (markdown) { return parseYear(markdown, item); })
-          .catch(function () { return null; });
-      })).then(function (yearRows) {
-        yearRows.filter(Boolean).forEach(function (yearRow) {
-          yearRow.records.forEach(function (record) {
-            record.preference = inferPreference(record, libraryPreferences);
-          });
-        });
-        return yearRows;
-      });
-    }).then(function (years) {
-      return { years: years.filter(Boolean) };
-    });
+    dataPromise = window.DOC_READ_DATA && Array.isArray(window.DOC_READ_DATA.years)
+      ? Promise.resolve(window.DOC_READ_DATA)
+      : Promise.reject(new Error('阅读数据尚未生成，请先运行 npm run generate'));
     return dataPromise;
   }
 
@@ -194,47 +66,6 @@
       if (!document.body.contains(root)) return;
       root.dataset.loading = 'false';
       root.innerHTML = '<p class="reading-list-loading">最新阅读记录读取失败，请刷新页面重试。</p>';
-    });
-  }
-
-  function yearLinks(data, descending) {
-    var years = data.years.slice();
-    if (descending) years.reverse();
-    return years.map(function (item) {
-      return '<a href="#/docs/years/' + item.year + '">' + item.year + '</a>';
-    }).join('<span aria-hidden="true"> · </span>');
-  }
-
-  function mountArchiveNavigation() {
-    discoverReadingData().then(function (data) {
-      if (!data.years.length) return;
-      var first = data.years[0].year;
-      var latest = data.years[data.years.length - 1].year;
-      document.querySelectorAll('[data-archive-start]').forEach(function (element) { element.textContent = first; });
-      document.querySelectorAll('[data-archive-range]').forEach(function (element) { element.textContent = first + '—' + latest; });
-
-      ['home-year-list', 'library-year-list'].forEach(function (id) {
-        var root = document.getElementById(id);
-        if (root) root.innerHTML = yearLinks(data, true);
-      });
-
-      document.querySelectorAll('.app-nav a').forEach(function (link) {
-        if (link.textContent.trim() === '年度归档') link.setAttribute('href', '#/docs/years/' + latest);
-      });
-
-      document.querySelectorAll('.sidebar-nav strong').forEach(function (heading) {
-        if (heading.textContent.trim() !== '年度归档') return;
-        var paragraph = heading.closest('p');
-        var list = paragraph && paragraph.nextElementSibling;
-        if (!list || list.tagName !== 'UL') {
-          var section = heading.closest('li');
-          list = section && section.querySelector(':scope > ul');
-        }
-        if (!list) return;
-        list.innerHTML = data.years.slice().reverse().map(function (item) {
-          return '<li><a href="#/docs/years/' + item.year + '">' + item.year + '</a></li>';
-        }).join('');
-      });
     });
   }
 
@@ -336,26 +167,31 @@
         '<div class="reading-chart-title"><strong>年度阅读节奏</strong><span>点击柱形选择年份</span></div>',
         '<div class="reading-bars" role="img" aria-label="' + first.year + ' 至 ' + latest.year + ' 年每年阅读书目数量"></div>',
       '</div>',
-      '<div class="reading-chart-grid">',
-        '<div class="reading-chart-block">',
-          '<div class="reading-chart-title"><strong>月份习惯</strong><span data-habit-caption>全部年份累计</span></div>',
-          '<div class="reading-heatmap" role="img" aria-label="每月阅读记录热力图"></div>',
-          '<div class="reading-months" aria-hidden="true"><span>1月</span><span>2月</span><span>3月</span><span>4月</span><span>5月</span><span>6月</span><span>7月</span><span>8月</span><span>9月</span><span>10月</span><span>11月</span><span>12月</span></div>',
+      '<details class="reading-dashboard-details">',
+        '<summary><span>查看详细数据</span><small>月份、字数与阅读偏好</small></summary>',
+        '<div class="reading-dashboard-detail-content">',
+          '<div class="reading-chart-grid">',
+            '<div class="reading-chart-block">',
+              '<div class="reading-chart-title"><strong>月份习惯</strong><span data-habit-caption>全部年份累计</span></div>',
+              '<div class="reading-heatmap" role="img" aria-label="每月阅读记录热力图"></div>',
+              '<div class="reading-months" aria-hidden="true"><span>1月</span><span>2月</span><span>3月</span><span>4月</span><span>5月</span><span>6月</span><span>7月</span><span>8月</span><span>9月</span><span>10月</span><span>11月</span><span>12月</span></div>',
+            '</div>',
+            '<div class="reading-chart-block reading-words-block">',
+              '<div class="reading-chart-title"><strong>阅读字数趋势</strong><span>仅展示有明确记录的年份</span></div>',
+              '<svg class="reading-word-chart" viewBox="0 0 460 210" role="img" aria-label="年度阅读字数趋势图"></svg>',
+            '</div>',
+          '</div>',
+          '<div class="reading-chart-block reading-preference-block">',
+            '<div class="reading-chart-title"><strong>我的阅读偏好</strong><span data-preference-caption>按阅读记录统计</span></div>',
+            '<div class="reading-preferences">',
+              '<svg class="reading-preference-pie" viewBox="0 0 220 220" role="img" aria-label="阅读类型偏好饼图"></svg>',
+              '<div class="reading-preference-legend" role="list" aria-label="阅读类型偏好图例"></div>',
+            '</div>',
+            '<div class="reading-preference-detail" data-preference-detail aria-live="polite">点击分类查看包含的书目</div>',
+          '</div>',
+          '<p class="reading-insight" data-reading-insight></p>',
         '</div>',
-        '<div class="reading-chart-block reading-words-block">',
-          '<div class="reading-chart-title"><strong>阅读字数趋势</strong><span>仅展示有明确记录的年份</span></div>',
-          '<svg class="reading-word-chart" viewBox="0 0 460 210" role="img" aria-label="年度阅读字数趋势图"></svg>',
-        '</div>',
-      '</div>',
-      '<div class="reading-chart-block reading-preference-block">',
-        '<div class="reading-chart-title"><strong>我的阅读偏好</strong><span data-preference-caption>按阅读记录统计</span></div>',
-        '<div class="reading-preferences">',
-          '<svg class="reading-preference-pie" viewBox="0 0 220 220" role="img" aria-label="阅读类型偏好饼图"></svg>',
-          '<div class="reading-preference-legend" role="list" aria-label="阅读类型偏好图例"></div>',
-        '</div>',
-        '<div class="reading-preference-detail" data-preference-detail aria-live="polite">点击分类查看包含的书目</div>',
-      '</div>',
-      '<p class="reading-insight" data-reading-insight></p>'
+      '</details>'
     ].join('');
   }
 
@@ -579,7 +415,6 @@
   }
 
   function mountHomeWidgets() {
-    mountArchiveNavigation();
     mountRecentReading();
     mountLatestReadingPage();
     mountYearWordTotal();
@@ -588,6 +423,7 @@
 
   window.addEventListener('hashchange', function () { setTimeout(mountHomeWidgets, 80); });
   document.addEventListener('doc-read:rendered', mountHomeWidgets);
+  document.addEventListener('doc-read:widgets-ready', mountHomeWidgets);
   document.addEventListener('DOMContentLoaded', function () { setTimeout(mountHomeWidgets, 80); });
   setTimeout(mountHomeWidgets, 300);
 }());

@@ -18,9 +18,10 @@
   <meta property="og:image" content="https://firefly1984982452.github.io/doc-read/assets/images/cover.svg">
   <link rel="icon" href="./assets/images/favicon.svg" type="image/svg+xml">
   <link rel="manifest" href="./site.webmanifest">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/docsify@4.13.1/lib/themes/vue.css">
-  <link rel="stylesheet" href="./assets/css/blog.css?v=20260813-3">
+  <link rel="stylesheet" href="./assets/vendor/docsify/vue.css">
+  <link rel="stylesheet" href="./assets/css/blog.css?v=135086ebd8">
   <script>
+    window.DOC_READ_BUILD = '135086ebd8';
     (function () {
       var savedTheme = localStorage.getItem('doc-read-theme');
       var systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -35,10 +36,11 @@
   <button id="theme-toggle" class="theme-toggle" type="button" aria-label="切换深浅色主题" title="切换深浅色主题">
     <span aria-hidden="true">◐</span>
   </button>
+  <button id="wechat-copy" class="wechat-copy" type="button" title="复制当前文章的公众号富文本格式" hidden>复制到公众号</button>
+  <div id="wechat-copy-toast" class="wechat-copy-toast" role="status" aria-live="polite" hidden></div>
   <div id="app">正在打开书房…</div>
   <noscript>这个网站需要启用 JavaScript 才能浏览阅读笔记。</noscript>
 
-  <script src="./assets/js/search-paths.js"></script>
   <script>
     window.$docsify = {
       name: '丹的阅读笔记',
@@ -57,14 +59,6 @@
       relativePath: false,
       notFoundPage: '404.md',
       topMargin: 32,
-      search: {
-        paths: window.DOC_READ_SEARCH_PATHS || 'auto',
-        placeholder: '搜索书名、作者或笔记内容',
-        noData: '没有找到相关内容',
-        depth: 4,
-        hideOtherSidebarContent: true,
-        namespace: 'doc-read-v2'
-      },
       count: {
         countable: true,
         fontsize: '0.82em',
@@ -101,13 +95,15 @@
       ]
     };
   </script>
-  <script src="https://cdn.jsdelivr.net/npm/docsify@4.13.1/lib/docsify.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/docsify@4.13.1/lib/plugins/search.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/docsify@4.13.1/lib/plugins/zoom-image.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/docsify-pagination@2.10.1/dist/docsify-pagination.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/docsify-count@1.1.0/dist/countable.min.js"></script>
+  <script src="./assets/vendor/docsify/docsify.min.js"></script>
+  <script src="./assets/vendor/docsify/zoom-image.min.js"></script>
+  <script src="./assets/vendor/docsify/docsify-pagination.min.js"></script>
+  <script src="./assets/vendor/docsify/countable.min.js"></script>
   <script src="./assets/js/site.js"></script>
-  <script src="./assets/js/reading-dashboard.js?v=20260813-5"></script>
+  <script src="./assets/js/resource-loader.js?v=135086ebd8"></script>
+  <script src="./assets/js/archive-nav.js?v=135086ebd8"></script>
+  <script src="./assets/js/search.js?v=135086ebd8"></script>
+  <script src="./assets/js/route-loader.js?v=135086ebd8"></script>
 </body>
 
 </html>

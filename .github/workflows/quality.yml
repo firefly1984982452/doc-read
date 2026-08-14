@@ -3,6 +3,9 @@ name: Site quality
 on:
   push:
   pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: '30 2 * * 1'
 
 permissions:
   contents: read
@@ -20,3 +23,21 @@ jobs:
       - run: npm run build
       - name: Ensure generated files are committed
         run: git diff --exit-code
+
+  external-images:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run check:images
+      - name: Upload image health report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: image-health-report
+          path: reports/image-health.json

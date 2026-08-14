@@ -7,11 +7,16 @@
     "dev": "docsify serve . --port 3000",
     "generate": "node scripts/generate-site.mjs",
     "check": "node scripts/check-site.mjs",
+    "check:deploy": "node scripts/check-deployment.mjs",
     "check:images": "node scripts/check-images.mjs",
-    "build": "npm run generate && npm run check"
+    "test": "node --test",
+    "build": "npm run generate && npm run check && npm run test && npm run check:deploy"
   },
   "devDependencies": {
-    "docsify-cli": "4.4.4"
+    "docsify": "^4.13.1",
+    "docsify-cli": "4.4.4",
+    "docsify-count": "^1.1.0",
+    "docsify-pagination": "^2.10.1"
   },
   "engines": {
     "node": ">=20"
