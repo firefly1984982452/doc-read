@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildBookMetadata, noteMetadata, parseLibraryPreferences, parseYear } from './lib/reading-data.mjs';
+import { typoRules } from './lib/typo-rules.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const siteUrl = 'https://firefly1984982452.github.io/doc-read/';
@@ -50,6 +51,13 @@ const markdownFiles = (await walk(path.join(root, 'docs')))
 
 await fs.mkdir(path.join(root, 'assets/js'), { recursive: true });
 await fs.mkdir(path.join(root, 'assets/data'), { recursive: true });
+const serializedTypoRules = JSON.stringify(typoRules);
+await fs.writeFile(path.join(root, 'assets/data/typo-rules.json'), `${serializedTypoRules}\n`, 'utf8');
+await fs.writeFile(
+  path.join(root, 'assets/data/typo-rules.js'),
+  `(function (global) { global.DOC_READ_TYPO_RULES = ${serializedTypoRules}; }(window));\n`,
+  'utf8'
+);
 await Promise.all([
   'assets/js/reading-data.js',
   'assets/js/reading-years.js',
@@ -177,6 +185,7 @@ await fs.writeFile(path.join(root, 'sitemap.xml'), sitemap, 'utf8');
 
 const versionedAssets = [
   'assets/css/blog.css',
+  'assets/data/typo-rules.js',
   'assets/js/resource-loader.js',
   'assets/js/archive-nav.js',
   'assets/js/route-loader.js',
@@ -187,9 +196,12 @@ const versionSourceAssets = [
   'assets/data/reading-data.json',
   'assets/data/reading-years.json',
   'assets/data/book-metadata.json',
+  'assets/data/typo-rules.json',
   'assets/js/reading-dashboard.js',
   'assets/data/search-index.json',
   'assets/js/wechat-copy.js',
+  'assets/js/typo-checker.js',
+  'assets/js/section-fold.js',
   ...searchChunks.map((_, index) => `assets/data/search-chunks/${index}.json`)
 ];
 const versionSource = await Promise.all(versionSourceAssets.map((asset) => fs.readFile(path.join(root, asset))));

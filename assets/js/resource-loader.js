@@ -2,6 +2,7 @@
   'use strict';
 
   var jsonRequests = new Map();
+  var textRequests = new Map();
   var scriptRequests = new Map();
 
   function asset(relative, retryNumber) {
@@ -45,6 +46,24 @@
     return request;
   }
 
+  function text(relative, options) {
+    if (textRequests.has(relative)) return textRequests.get(relative);
+    var attempts = Math.max(1, Number(options && options.attempts) || 3);
+    var request = retry(function (retryNumber) {
+      return global.fetch(asset(relative, retryNumber), {
+        cache: retryNumber ? 'reload' : 'default'
+      }).then(function (response) {
+        if (!response.ok) throw new Error('无法读取 ' + relative + '（HTTP ' + response.status + '）');
+        return response.text();
+      });
+    }, attempts).catch(function (error) {
+      textRequests.delete(relative);
+      throw error;
+    });
+    textRequests.set(relative, request);
+    return request;
+  }
+
   function script(relative, options) {
     if (scriptRequests.has(relative)) return scriptRequests.get(relative);
     var attempts = Math.max(1, Number(options && options.attempts) || 3);
@@ -68,5 +87,5 @@
     return request;
   }
 
-  global.DocReadResources = { asset: asset, json: json, script: script };
+  global.DocReadResources = { asset: asset, json: json, text: text, script: script };
 }(window));

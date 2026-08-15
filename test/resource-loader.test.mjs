@@ -68,3 +68,18 @@ test('a terminal failure is evicted so a later user action can try again', async
   assert.deepEqual(await window.DocReadResources.json('assets/data/recover.json', { attempts: 1 }), { recovered: true });
   assert.equal(attempts, 2);
 });
+
+test('text resources use the same retry and cache behavior', async () => {
+  let attempts = 0;
+  const window = await createLoader({
+    fetch: async () => {
+      attempts += 1;
+      if (attempts === 1) throw new Error('temporary');
+      return { ok: true, text: async () => '# Markdown' };
+    },
+    document: { createElement() {}, head: { appendChild() {} } }
+  });
+  assert.equal(await window.DocReadResources.text('docs/read/example.md'), '# Markdown');
+  assert.equal(await window.DocReadResources.text('docs/read/example.md'), '# Markdown');
+  assert.equal(attempts, 2);
+});

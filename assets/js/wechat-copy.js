@@ -5,7 +5,9 @@
   var PUBLIC_SITE = canonical
     ? canonical.href
     : new URL('./', window.location.href.split('#')[0]).href;
-  var button = document.getElementById('wechat-copy');
+  var wechatButton = document.getElementById('wechat-copy');
+  var zhihuButton = document.getElementById('zhihu-copy');
+  var tools = document.getElementById('reading-tools');
   var toast = document.getElementById('wechat-copy-toast');
 
   function applyStyles(element, styles) {
@@ -20,19 +22,73 @@
     parent.removeChild(element);
   }
 
+  function isLocalUrl(url) {
+    return url.protocol === 'file:' || /^(?:localhost|127\.0\.0\.1|\[::1\])$/i.test(url.hostname);
+  }
+
+  function projectRelativePath(url) {
+    var canonicalUrl = new URL(PUBLIC_SITE);
+    var projectName = canonicalUrl.pathname.split('/').filter(Boolean).pop();
+    var marker = projectName ? '/' + projectName + '/' : '';
+    var markerIndex = marker ? url.pathname.lastIndexOf(marker) : -1;
+    if (markerIndex !== -1) return url.pathname.slice(markerIndex + marker.length);
+    var knownPath = url.pathname.match(/\/(assets|docs)\/.+$/);
+    return knownPath ? knownPath[0].replace(/^\//, '') : url.pathname.replace(/^\//, '');
+  }
+
+  function currentPublicRoute(anchor) {
+    var route = (window.location.hash || '#/').split('?')[0];
+    return PUBLIC_SITE + 'index.html' + route + (anchor ? '?id=' + anchor : '');
+  }
+
   function publicUrl(href) {
-    if (!href || href.charAt(0) === '#') {
-      return href && href.indexOf('#/docs/') === 0 ? PUBLIC_SITE + 'index.html' + href : href;
-    }
-    if (/^https?:\/\//i.test(href)) return href;
+    if (!href) return href;
+    if (href.indexOf('#/') === 0) return PUBLIC_SITE + 'index.html' + href;
+    if (href.charAt(0) === '#') return currentPublicRoute(href.slice(1));
     if (href.indexOf('/docs/') === 0) {
       return PUBLIC_SITE + 'index.html#' + href.replace(/\.md(?=$|[?#])/, '');
     }
-    return new URL(href, PUBLIC_SITE).href;
+
+    var resolved = new URL(href, window.location.href);
+    if (isLocalUrl(resolved)) {
+      if (resolved.hash.indexOf('#/docs/') === 0) return PUBLIC_SITE + 'index.html' + resolved.hash;
+      var relative = projectRelativePath(resolved);
+      if (relative.indexOf('docs/') === 0) {
+        return PUBLIC_SITE + 'index.html#/' + relative.replace(/\.md(?=$|[?#])/, '');
+      }
+      return new URL(relative, PUBLIC_SITE).href;
+    }
+    return resolved.href;
   }
 
-  function styleArticle(source) {
+  function publicAssetUrl(src) {
+    if (!src || /^(?:data:|blob:)/i.test(src)) return src;
+    var resolved = new URL(src, window.location.href);
+    if (!isLocalUrl(resolved) && /^https?:$/i.test(resolved.protocol)) return resolved.href;
+    return new URL(projectRelativePath(resolved), PUBLIC_SITE).href;
+  }
+
+  function sanitizeAttributes(element, stripInlineStyles) {
+    Array.from(element.attributes || []).forEach(function (attribute) {
+      if (
+        /^on/i.test(attribute.name)
+        || attribute.name === 'id'
+        || attribute.name === 'class'
+        || attribute.name.indexOf('data-') === 0
+        || attribute.name.indexOf('aria-') === 0
+        || (stripInlineStyles && attribute.name === 'style')
+      ) {
+        element.removeAttribute(attribute.name);
+      }
+    });
+  }
+
+  function prepareArticle(source, options) {
+    options = options || {};
     var article = source.cloneNode(true);
+    article.querySelectorAll('.section-fold-item[hidden]').forEach(function (element) {
+      element.removeAttribute('hidden');
+    });
     article.querySelectorAll('.countable, .docsify-copy-code-button, .pagination-item, script, style, button, noscript').forEach(function (element) {
       element.remove();
     });
@@ -46,22 +102,30 @@
       link.removeAttribute('rel');
     });
     article.querySelectorAll('img').forEach(function (image) {
-      image.setAttribute('src', image.src);
+      var src = publicAssetUrl(image.getAttribute('src') || image.src);
+      if (src) image.setAttribute('src', src);
+      else image.removeAttribute('src');
       image.removeAttribute('data-origin');
+    });
+
+    article.querySelectorAll('*').forEach(function (element) {
+      sanitizeAttributes(element, options.stripInlineStyles);
+    });
+    if (options.cleanRoot) sanitizeAttributes(article, options.stripInlineStyles);
+
+    return article;
+  }
+
+  function styleArticle(source) {
+    var article = prepareArticle(source);
+
+    article.querySelectorAll('img').forEach(function (image) {
       applyStyles(image, {
         borderRadius: '6px',
         display: 'block',
         height: 'auto',
         margin: '22px auto',
         maxWidth: '100%'
-      });
-    });
-
-    article.querySelectorAll('*').forEach(function (element) {
-      Array.from(element.attributes).forEach(function (attribute) {
-        if (/^on/i.test(attribute.name) || attribute.name === 'id' || attribute.name === 'class' || attribute.name.indexOf('data-') === 0 || attribute.name.indexOf('aria-') === 0) {
-          element.removeAttribute(attribute.name);
-        }
       });
     });
 
@@ -183,6 +247,56 @@
     return article;
   }
 
+  function zhihuArticle(source) {
+    return prepareArticle(source, {
+      cleanRoot: true,
+      stripInlineStyles: true
+    });
+  }
+
+  function articlePlainText(article) {
+    function walk(node) {
+      if (!node) return '';
+      if (node.nodeType === 3) return node.nodeValue || '';
+      if (node.nodeType !== 1) return '';
+
+      var tag = String(node.tagName || '').toUpperCase();
+      if (tag === 'BR') return '\n';
+      if (tag === 'IMG') return node.getAttribute && node.getAttribute('alt') ? node.getAttribute('alt') : '';
+
+      var text = Array.from(node.childNodes || []).map(walk).join('');
+      if (tag === 'LI') return '- ' + text.trim() + '\n';
+      if (tag === 'TD' || tag === 'TH') return text.trim() + '\t';
+      if (tag === 'TR') return text.replace(/\t$/, '') + '\n';
+      if (/^(ARTICLE|SECTION|DIV|H[1-6]|P|UL|OL|BLOCKQUOTE|PRE|TABLE)$/.test(tag)) return text.trim() + '\n\n';
+      return text;
+    }
+
+    var text = walk(article);
+    if (!text && article) text = article.innerText || article.textContent || '';
+    return text
+      .replace(/\u00a0/g, ' ')
+      .replace(/[ \t]+\n/g, '\n')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
+  }
+
+  function buildWechatPayload(source) {
+    var article = styleArticle(source);
+    return {
+      html: '<section style="background:#ffffff;margin:0;padding:0;">' + article.outerHTML + '</section>',
+      text: articlePlainText(article)
+    };
+  }
+
+  function buildZhihuPayload(source) {
+    var article = zhihuArticle(source);
+    return {
+      html: article.outerHTML,
+      text: articlePlainText(article)
+    };
+  }
+
   function copyFallback(html, text) {
     var holder = document.createElement('div');
     holder.setAttribute('contenteditable', 'true');
@@ -196,73 +310,155 @@
       event.preventDefault();
     };
     holder.addEventListener('copy', onCopy, { once: true });
-    holder.focus();
-    var range = document.createRange();
-    range.selectNodeContents(holder);
-    var selection = window.getSelection();
-    selection.removeAllRanges();
-    selection.addRange(range);
-    var copied = document.execCommand('copy');
-    selection.removeAllRanges();
-    holder.remove();
+    var activeElement = document.activeElement;
+    var selection = window.getSelection ? window.getSelection() : null;
+    var previousRanges = [];
+    var copied = false;
+
+    try {
+      if (selection && typeof selection.getRangeAt === 'function') {
+        for (var index = 0; index < selection.rangeCount; index += 1) {
+          var previousRange = selection.getRangeAt(index);
+          previousRanges.push(typeof previousRange.cloneRange === 'function' ? previousRange.cloneRange() : previousRange);
+        }
+      }
+      holder.focus();
+      var range = document.createRange();
+      range.selectNodeContents(holder);
+      if (selection) {
+        selection.removeAllRanges();
+        selection.addRange(range);
+      }
+      copied = typeof document.execCommand === 'function' && document.execCommand('copy');
+    } finally {
+      try {
+        if (selection) {
+          selection.removeAllRanges();
+          previousRanges.forEach(function (previousRange) { selection.addRange(previousRange); });
+        }
+      } catch (error) {
+        // A stale range should not prevent cleanup after the fallback copy attempt.
+      }
+      if (holder.parentNode) holder.parentNode.removeChild(holder);
+      else if (typeof holder.remove === 'function') holder.remove();
+      if (activeElement && typeof activeElement.focus === 'function') activeElement.focus();
+    }
     if (!copied) throw new Error('浏览器未允许复制');
   }
 
   function writeClipboard(html, text) {
-    if (navigator.clipboard && window.ClipboardItem) {
-      return navigator.clipboard.write([new ClipboardItem({
-        'text/html': new Blob([html], { type: 'text/html' }),
-        'text/plain': new Blob([text], { type: 'text/plain' })
-      })]).catch(function () { copyFallback(html, text); });
+    function fallbackPromise() {
+      try {
+        copyFallback(html, text);
+        return Promise.resolve();
+      } catch (error) {
+        return Promise.reject(error);
+      }
     }
-    copyFallback(html, text);
-    return Promise.resolve();
+
+    if (window.navigator.clipboard && window.ClipboardItem) {
+      try {
+        return Promise.resolve(window.navigator.clipboard.write([new window.ClipboardItem({
+          'text/html': new window.Blob([html], { type: 'text/html' }),
+          'text/plain': new window.Blob([text], { type: 'text/plain' })
+        })])).catch(fallbackPromise);
+      } catch (error) {
+        return fallbackPromise();
+      }
+    }
+    return fallbackPromise();
   }
 
   function showToast(message, state) {
+    if (!toast) return;
     toast.textContent = message;
     toast.dataset.state = state || '';
     toast.hidden = false;
-    window.clearTimeout(showToast.timer);
-    showToast.timer = window.setTimeout(function () { toast.hidden = true; }, 3600);
+    window.clearTimeout(toast.docReadTimer);
+    toast.docReadTimer = window.setTimeout(function () { toast.hidden = true; }, 3600);
   }
 
   function updateVisibility() {
     var isReadingNote = /^#\/docs\/(?:read|read-history)\//.test(window.location.hash);
-    button.hidden = !isReadingNote;
-    if (!isReadingNote) toast.hidden = true;
+    if (tools) tools.hidden = !isReadingNote;
+    else {
+      [wechatButton, zhihuButton].forEach(function (copyButton) {
+        if (copyButton) copyButton.hidden = !isReadingNote;
+      });
+    }
+    if (!isReadingNote && toast) toast.hidden = true;
   }
 
-  button.addEventListener('click', function () {
-    var source = document.querySelector('.markdown-section');
-    if (!source) return;
-    var originalText = button.textContent;
-    button.disabled = true;
-    button.textContent = '正在整理…';
-    try {
-      var article = styleArticle(source);
-      var html = '<section style="background:#ffffff;margin:0;padding:0;">' + article.outerHTML + '</section>';
-      writeClipboard(html, article.textContent || '').then(function () {
-        button.textContent = '已复制';
-        showToast('已复制紫色富文本，打开公众号编辑器直接粘贴即可。', 'success');
-      }).catch(function () {
-        button.textContent = '复制失败';
-        showToast('浏览器没有授予剪切板权限，请在 HTTPS 页面重试。', 'error');
-      }).finally(function () {
-        window.setTimeout(function () {
-          button.disabled = false;
-          button.textContent = originalText;
-        }, 1800);
+  function hideUntilRendered() {
+    if (tools) tools.hidden = true;
+    else {
+      [wechatButton, zhihuButton].forEach(function (copyButton) {
+        if (copyButton) copyButton.hidden = true;
       });
-    } catch (error) {
-      button.disabled = false;
-      button.textContent = originalText;
-      showToast('整理文章失败，请刷新页面后重试。', 'error');
     }
-  });
+    if (toast) toast.hidden = true;
+  }
+
+  function setButtonState(copyButton, state) {
+    copyButton.disabled = Boolean(state);
+    if (state) copyButton.dataset.copyState = state;
+    else delete copyButton.dataset.copyState;
+    if (state === 'loading') copyButton.setAttribute('aria-busy', 'true');
+    else copyButton.removeAttribute('aria-busy');
+  }
+
+  function bindCopyButton(copyButton, buildPayload, successMessage) {
+    if (!copyButton) return;
+    copyButton.addEventListener('click', function () {
+      var source = document.querySelector('.markdown-section');
+      if (!source) {
+        showToast('暂时无法读取当前文章，请刷新页面后重试。', 'error');
+        return;
+      }
+
+      setButtonState(copyButton, 'loading');
+      try {
+        var payload = buildPayload(source);
+        writeClipboard(payload.html, payload.text).then(function () {
+          setButtonState(copyButton, 'success');
+          showToast(successMessage, 'success');
+        }).catch(function () {
+          setButtonState(copyButton, 'error');
+          showToast('浏览器没有授予剪切板权限，请允许访问后重试。', 'error');
+        }).finally(function () {
+          window.setTimeout(function () { setButtonState(copyButton, ''); }, 1800);
+        });
+      } catch (error) {
+        setButtonState(copyButton, 'error');
+        showToast('整理文章失败，请刷新页面后重试。', 'error');
+        window.setTimeout(function () { setButtonState(copyButton, ''); }, 1800);
+      }
+    });
+  }
+
+  window.DocReadArticleCopy = {
+    articlePlainText: articlePlainText,
+    buildWechatPayload: buildWechatPayload,
+    buildZhihuPayload: buildZhihuPayload,
+    prepareArticle: prepareArticle,
+    publicAssetUrl: publicAssetUrl,
+    publicUrl: publicUrl,
+    writeClipboard: writeClipboard
+  };
+
+  bindCopyButton(
+    wechatButton,
+    buildWechatPayload,
+    '已复制紫色富文本，打开公众号编辑器直接粘贴即可。'
+  );
+  bindCopyButton(
+    zhihuButton,
+    buildZhihuPayload,
+    '已复制知乎富文本，打开知乎编辑器直接粘贴即可。'
+  );
 
   document.addEventListener('doc-read:rendered', updateVisibility);
-  window.addEventListener('hashchange', function () { window.setTimeout(updateVisibility, 60); });
+  window.addEventListener('hashchange', hideUntilRendered);
   document.addEventListener('DOMContentLoaded', updateVisibility);
   updateVisibility();
 }());

@@ -10,6 +10,9 @@
     var needsReadingData = route === '#/' || /^#\/docs\/(?:latest|library|years\/)/.test(route);
     var isReadingNote = /^#\/docs\/(?:read|read-history)\//.test(route);
 
+    window.DocReadResources.script('assets/js/section-fold.js')
+      .catch(function (error) { console.error(error); });
+
     if (needsReadingData) {
       window.DocReadResources.json('assets/data/reading-data.json')
         .then(function (data) { window.DOC_READ_DATA = data; })
@@ -18,7 +21,10 @@
         .catch(function (error) { console.error(error); });
     }
     if (isReadingNote) {
-      window.DocReadResources.script('assets/js/wechat-copy.js').catch(function (error) { console.error(error); });
+      Promise.all([
+        window.DocReadResources.script('assets/js/wechat-copy.js'),
+        window.DocReadResources.script('assets/js/typo-checker.js')
+      ]).catch(function (error) { console.error(error); });
     }
   }
 

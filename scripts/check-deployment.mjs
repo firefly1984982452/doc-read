@@ -27,7 +27,15 @@ for (const relative of [
   'assets/data/reading-data.json',
   'assets/data/reading-years.json',
   'assets/data/book-metadata.json',
-  'assets/data/search-index.json'
+  'assets/data/typo-rules.json',
+  'assets/data/typo-rules.js',
+  'assets/data/search-index.json',
+  'assets/css/blog.css',
+  'assets/js/resource-loader.js',
+  'assets/js/route-loader.js',
+  'assets/js/section-fold.js',
+  'assets/js/typo-checker.js',
+  'assets/js/wechat-copy.js'
 ]) {
   if (!await exists(relative)) errors.push(`deployment file is missing: ${relative}`);
 }

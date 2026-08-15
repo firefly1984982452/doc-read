@@ -2,6 +2,7 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildBookMetadata, noteMetadata, parseLibraryPreferences, parseYear } from './lib/reading-data.mjs';
+import { typoRules } from './lib/typo-rules.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const ignoredDirectories = new Set(['.git', 'node_modules', 'reports']);
@@ -89,6 +90,21 @@ if (indexHtml.includes('content="Description"')) errors.push('index.html still c
 if (indexHtml.includes('cdn.jsdelivr.net')) errors.push('index.html must use local pinned frontend dependencies');
 if (indexHtml.includes('plugins/search.min.js')) errors.push('index.html must use the lazy local search implementation');
 if (!indexHtml.includes('assets/js/route-loader.js')) errors.push('index.html must load route-aware assets');
+if (!indexHtml.includes('id="typo-check"') || !indexHtml.includes('id="typo-dialog"')) errors.push('index.html must include the typo review controls');
+for (const control of ['wechat-copy', 'zhihu-copy']) {
+  if (!indexHtml.includes(`id="${control}"`)) errors.push(`index.html must include the ${control} article control`);
+}
+if (!indexHtml.includes('data-tooltip="复制到公众号"') || !indexHtml.includes('data-tooltip="复制到知乎"')) {
+  errors.push('article copy controls must expose visible hover and keyboard-focus labels');
+}
+if (!indexHtml.includes('assets/data/typo-rules.js')) errors.push('index.html must preload typo rules for file and Docsify compatibility');
+const routeLoader = await fs.readFile(path.join(root, 'assets/js/route-loader.js'), 'utf8');
+if (!routeLoader.includes('assets/js/section-fold.js')) errors.push('document routes must load the section folding interaction');
+if (!routeLoader.includes('assets/js/wechat-copy.js')) errors.push('reading routes must load the article copy interaction');
+const articleCopy = await fs.readFile(path.join(root, 'assets/js/wechat-copy.js'), 'utf8');
+if (!articleCopy.includes("getElementById('zhihu-copy')") || !articleCopy.includes('buildZhihuPayload')) {
+  errors.push('article copy interaction must provide a Zhihu rich-text payload');
+}
 if (/assets\/js\/(?:reading-data|reading-years|search-index)\.js/.test(indexHtml)) {
   errors.push('index.html must not load generated content as JavaScript globals');
 }
@@ -97,6 +113,7 @@ const generatedDataFiles = [
   'assets/data/reading-data.json',
   'assets/data/reading-years.json',
   'assets/data/book-metadata.json',
+  'assets/data/typo-rules.json',
   'assets/data/search-index.json'
 ];
 for (const relative of generatedDataFiles) {
@@ -115,6 +132,7 @@ try {
   const generatedReadingData = JSON.parse(await fs.readFile(path.join(root, 'assets/data/reading-data.json'), 'utf8'));
   const generatedReadingYears = JSON.parse(await fs.readFile(path.join(root, 'assets/data/reading-years.json'), 'utf8'));
   const generatedBooks = JSON.parse(await fs.readFile(path.join(root, 'assets/data/book-metadata.json'), 'utf8'));
+  const generatedTypoRules = JSON.parse(await fs.readFile(path.join(root, 'assets/data/typo-rules.json'), 'utf8'));
   const expectedNotes = await Promise.all(readingFiles.map(async (file) => noteMetadata(
     await fs.readFile(file, 'utf8'),
     path.relative(root, file).split(path.sep).join('/'),
@@ -130,6 +148,13 @@ try {
   }
   if (JSON.stringify(generatedBooks) !== JSON.stringify(expectedBooks) || JSON.stringify(generatedReadingData.books) !== JSON.stringify(expectedBooks)) {
     errors.push('generated book metadata is stale or inconsistent; run npm run generate');
+  }
+  if (JSON.stringify(generatedTypoRules) !== JSON.stringify(typoRules)) {
+    errors.push('assets/data/typo-rules.json is stale; run npm run generate');
+  }
+  const generatedTypoScript = await fs.readFile(path.join(root, 'assets/data/typo-rules.js'), 'utf8');
+  if (!generatedTypoScript.includes(`DOC_READ_TYPO_RULES = ${JSON.stringify(typoRules)}`)) {
+    errors.push('assets/data/typo-rules.js is stale; run npm run generate');
   }
   const bookIds = new Set(generatedBooks.map(book => book.id));
   for (const annual of generatedReadingData.years || []) {

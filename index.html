@@ -19,9 +19,9 @@
   <link rel="icon" href="./assets/images/favicon.svg" type="image/svg+xml">
   <link rel="manifest" href="./site.webmanifest">
   <link rel="stylesheet" href="./assets/vendor/docsify/vue.css">
-  <link rel="stylesheet" href="./assets/css/blog.css?v=135086ebd8">
+  <link rel="stylesheet" href="./assets/css/blog.css?v=656c148649">
   <script>
-    window.DOC_READ_BUILD = '135086ebd8';
+    window.DOC_READ_BUILD = '656c148649';
     (function () {
       var savedTheme = localStorage.getItem('doc-read-theme');
       var systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -36,8 +36,50 @@
   <button id="theme-toggle" class="theme-toggle" type="button" aria-label="切换深浅色主题" title="切换深浅色主题">
     <span aria-hidden="true">◐</span>
   </button>
-  <button id="wechat-copy" class="wechat-copy" type="button" title="复制当前文章的公众号富文本格式" hidden>复制到公众号</button>
+  <div id="reading-tools" class="reading-tools" role="group" aria-label="文章工具" hidden>
+    <button id="typo-check" class="article-tool typo-check" type="button" aria-label="检测错别字" data-tooltip="检测错别字">
+      <span class="article-tool-icon proofread-icon" aria-hidden="true">
+        <svg viewBox="0 0 32 32" focusable="false">
+          <circle cx="13.5" cy="13.5" r="7.5" />
+          <path d="m19 19 6.2 6.2" />
+          <path class="proofread-check" d="m10.1 13.8 2.2 2.2 4.7-4.8" />
+          <path class="proofread-sparkle" d="M23.5 5.2v3.6M21.7 7h3.6" />
+        </svg>
+      </span>
+      <span class="visually-hidden">检测错别字</span>
+    </button>
+    <button id="wechat-copy" class="article-tool wechat-copy" type="button" aria-label="复制到公众号" data-tooltip="复制到公众号">
+      <span class="article-tool-icon" aria-hidden="true">
+        <svg viewBox="0 0 32 32" focusable="false">
+          <path d="M13.1 5.5c-5.9 0-10.6 3.9-10.6 8.8 0 2.8 1.5 5.2 3.9 6.8l-1 3.2 3.8-1.8c1.2.4 2.5.6 3.9.6 5.8 0 10.6-4 10.6-8.8S18.9 5.5 13.1 5.5Z" />
+          <path d="M20.8 11.8c4.8 0 8.7 3.2 8.7 7.2 0 2.3-1.3 4.3-3.2 5.6l.8 2.6-3.1-1.5c-1 .3-2.1.5-3.2.5-4.8 0-8.7-3.2-8.7-7.2s3.9-7.2 8.7-7.2Z" />
+          <circle cx="9.4" cy="12.5" r="1.05" />
+          <circle cx="16.4" cy="12.5" r="1.05" />
+          <circle cx="18.1" cy="18" r=".9" />
+          <circle cx="23.7" cy="18" r=".9" />
+        </svg>
+      </span>
+      <span class="visually-hidden">复制到公众号</span>
+    </button>
+    <button id="zhihu-copy" class="article-tool zhihu-copy" type="button" aria-label="复制到知乎" data-tooltip="复制到知乎">
+      <span class="article-tool-icon article-tool-glyph" aria-hidden="true">知</span>
+      <span class="visually-hidden">复制到知乎</span>
+    </button>
+  </div>
   <div id="wechat-copy-toast" class="wechat-copy-toast" role="status" aria-live="polite" hidden></div>
+  <dialog id="typo-dialog" class="typo-dialog" aria-labelledby="typo-dialog-title" aria-describedby="typo-dialog-summary">
+    <div class="typo-dialog-head">
+      <p class="typo-dialog-kicker">TEXT REVIEW</p>
+      <h2 id="typo-dialog-title">错别字检测</h2>
+      <p id="typo-dialog-summary">正在检查当前文章…</p>
+    </div>
+    <div id="typo-results" class="typo-results" aria-live="polite"></div>
+    <p id="typo-edit-note" class="typo-edit-note"></p>
+    <div class="typo-dialog-actions">
+      <button id="typo-dismiss" type="button">我知道了</button>
+      <button id="typo-apply" type="button">一键修改原文件的错别字</button>
+    </div>
+  </dialog>
   <div id="app">正在打开书房…</div>
   <noscript>这个网站需要启用 JavaScript 才能浏览阅读笔记。</noscript>
 
@@ -72,22 +114,35 @@
       },
       plugins: [
         function (hook) {
+          hook.beforeEach(function (markdown) {
+            var route = (window.location.hash || '').split('?')[0].replace(/^#\//, '');
+            try { route = decodeURIComponent(route); } catch (error) { /* Keep the encoded route. */ }
+            window.DOC_READ_PAGE_SOURCE = {
+              path: route ? route.replace(/\.md$/, '') + '.md' : '',
+              markdown: markdown
+            };
+            return markdown;
+          });
           hook.doneEach(function () {
             var articleTitle = document.querySelector('.markdown-section h1');
             var isReadingNote = /^#\/docs\/(?:read|read-history)\//.test(window.location.hash);
             document.body.classList.toggle('reading-note-page', isReadingNote);
             document.querySelectorAll('.markdown-section > p').forEach(function (paragraph) {
               var isMetadata = /^\s*date\s*:/i.test(paragraph.textContent);
-              paragraph.classList.toggle('reading-body-paragraph', isReadingNote && !isMetadata);
+              var containsImage = Boolean(paragraph.querySelector('img'));
+              paragraph.classList.toggle('reading-image-paragraph', containsImage);
+              paragraph.classList.toggle('reading-body-paragraph', isReadingNote && !isMetadata && !containsImage);
             });
             document.title = articleTitle
               ? articleTitle.textContent.trim() + ' · 丹的阅读笔记'
               : '丹的阅读笔记';
-            document.querySelectorAll('.markdown-section a[href^="http"]').forEach(function (link) {
-              if (link.hostname !== window.location.hostname) {
-                link.target = '_blank';
-                link.rel = 'noopener noreferrer';
-              }
+            document.querySelectorAll('.markdown-section a:not(.anchor)').forEach(function (link) {
+              var href = link.getAttribute('href') || '';
+              var isSamePageAnchor = href.charAt(0) === '#' && href.indexOf('#/') !== 0;
+              var isPagination = Boolean(link.closest('.docsify-pagination-container, .pagination-item'));
+              if (!href || isSamePageAnchor || isPagination) return;
+              link.target = '_blank';
+              link.rel = 'noopener noreferrer';
             });
             document.dispatchEvent(new CustomEvent('doc-read:rendered'));
           });
@@ -100,10 +155,11 @@
   <script src="./assets/vendor/docsify/docsify-pagination.min.js"></script>
   <script src="./assets/vendor/docsify/countable.min.js"></script>
   <script src="./assets/js/site.js"></script>
-  <script src="./assets/js/resource-loader.js?v=135086ebd8"></script>
-  <script src="./assets/js/archive-nav.js?v=135086ebd8"></script>
-  <script src="./assets/js/search.js?v=135086ebd8"></script>
-  <script src="./assets/js/route-loader.js?v=135086ebd8"></script>
+  <script src="./assets/data/typo-rules.js?v=656c148649"></script>
+  <script src="./assets/js/resource-loader.js?v=656c148649"></script>
+  <script src="./assets/js/archive-nav.js?v=656c148649"></script>
+  <script src="./assets/js/search.js?v=656c148649"></script>
+  <script src="./assets/js/route-loader.js?v=656c148649"></script>
 </body>
 
 </html>
