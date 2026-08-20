@@ -423,6 +423,10 @@ html[data-theme='dark'] .zhihu-copy { --tool-icon: #69a4ff; }
 .content { left: 0; padding-top: 1rem; }
 body:not(.close) .content { left: var(--sidebar-width); }
 
+.markdown-section figure, .markdown-section p{
+  margin: 0.6em 0!important;
+}
+
 .markdown-section {
   background-color: var(--surface);
   background-image:
@@ -443,17 +447,14 @@ body:not(.close) .content { left: var(--sidebar-width); }
 .markdown-section h3,
 .markdown-section h4 { color: var(--ink); font-family: system-ui, "PingFang SC", "Microsoft YaHei", sans-serif; font-weight: 700; letter-spacing: .01em; }
 .markdown-section h1 {
-  border-bottom: 3px solid var(--accent-soft);
   font-size: clamp(2.15rem, 5vw, 3.15rem);
   line-height: 1.3;
-  margin: 0 0 3rem;
-  padding: 0 0 1.8rem;
 }
 .markdown-section h2 {
   border: 0;
   color: var(--accent) !important;
   font-size: 1.58rem;
-  margin: 3.7rem 0 2rem;
+  margin: 1rem 0 .2rem;
   padding: .2rem 0 .2rem 1.25rem;
   position: relative;
 }
@@ -542,7 +543,7 @@ body:not(.close) .content { left: var(--sidebar-width); }
   color: var(--accent);
   font-weight: 700;
 }
-.markdown-section hr { border: 0; border-top: 1px solid var(--line); margin: 2.8rem 0; }
+.markdown-section hr { border: 0; border-top: 1px solid var(--line); margin: 2rem 0; }
 .markdown-section a { color: var(--accent); font-weight: inherit; text-decoration-color: color-mix(in srgb, var(--accent), transparent 55%); text-underline-offset: .2em; }
 .markdown-section a:hover { text-decoration-color: var(--accent); }
 .markdown-section blockquote {
@@ -871,7 +872,7 @@ div.comments-box {
   body:not(.close) .content { left: 0 !important; transform: none !important; }
   .markdown-section { line-height: 1.82; padding: 5rem 1.35rem 5rem; }
   .markdown-section h1 { font-size: 2.05rem; margin-bottom: 2.5rem; padding-bottom: 1.35rem; }
-  .markdown-section h2 { font-size: 1.38rem; margin-top: 3.1rem; padding-left: 1rem; }
+  .markdown-section h2 { font-size: 1.38rem; margin-top: 1.1rem; padding-left: 1rem; }
   .markdown-section h2.has-section-fold { padding-left: 2.85rem; }
   .markdown-section h2::before { width: 6px; }
   .section-fold-toggle { height: 1.6rem; left: .72rem; width: 1.6rem; }
