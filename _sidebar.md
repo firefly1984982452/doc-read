@@ -20,8 +20,8 @@
   - [完整索引](/docs/library.md?id=完整索引)
 
 - **专题阅读**
-  - [《黄帝内经》](/docs/read/《黄帝内经》.md)
-  - [《庄子》](/docs/read/《庄子》.md)
+  - [《黄帝内经》](/docs/read/徐文兵、梁冬《黄帝内经》.md)
+  - [《庄子》](/docs/read/庄周《庄子》.md)
   - [二十四史阅读记录](/docs/read-history/《二十四史》阅读记录.md)
   - [《史记》十二本纪](/docs/read-history/1-《史记》/《史记·十二本纪·1五帝本纪》.md)
   - [《汉书》](/docs/read-history/2-《汉书》/《汉书·纪·1昭帝纪》.md)

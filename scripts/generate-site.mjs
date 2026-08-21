@@ -185,6 +185,7 @@ await fs.writeFile(path.join(root, 'sitemap.xml'), sitemap, 'utf8');
 
 const versionedAssets = [
   'assets/css/blog.css',
+  'assets/data/legacy-routes.js',
   'assets/data/typo-rules.js',
   'assets/js/resource-loader.js',
   'assets/js/archive-nav.js',
@@ -200,6 +201,7 @@ const versionSourceAssets = [
   'assets/js/reading-dashboard.js',
   'assets/data/search-index.json',
   'assets/js/wechat-copy.js',
+  'assets/js/xhs-export.js',
   'assets/js/typo-checker.js',
   'assets/js/section-fold.js',
   ...searchChunks.map((_, index) => `assets/data/search-chunks/${index}.json`)

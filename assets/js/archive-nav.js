@@ -21,6 +21,72 @@
     }).join('<span aria-hidden="true"> · </span>');
   }
 
+  function archiveMenu(years, currentYear) {
+    return years.slice().reverse().map(function (year) {
+      var active = String(year) === String(currentYear);
+      return '<li><a href="#/docs/years/' + year + '"' + (active ? ' class="active" aria-current="page"' : '') + '>' + year + '</a></li>';
+    }).join('');
+  }
+
+  function setExpanded(item, expanded) {
+    if (!item) return;
+    item.classList.toggle('is-open', expanded);
+    if (!expanded) {
+      delete item.dataset.archiveTouchOpen;
+    }
+    var trigger = item.querySelector(':scope > a');
+    if (trigger) trigger.setAttribute('aria-expanded', String(expanded));
+  }
+
+  function enhanceArchiveMenu(link, years, latest) {
+    var item = link.closest('li');
+    if (!item) return;
+    var menu = item.querySelector(':scope > ul');
+    if (!menu) {
+      menu = document.createElement('ul');
+      item.appendChild(menu);
+    }
+    var routeMatch = window.location.hash.match(/^#\/docs\/years\/(\d{4})/);
+    var currentYear = routeMatch && routeMatch[1];
+    var menuSignature = years.join(',') + '|' + (currentYear || '');
+    var menuIndex = Array.prototype.indexOf.call(document.querySelectorAll('.app-nav a'), link) + 1;
+    item.classList.add('archive-nav-item');
+    link.classList.toggle('active', Boolean(currentYear));
+    link.setAttribute('href', '#/docs/years/' + latest);
+    link.setAttribute('aria-haspopup', 'true');
+    link.setAttribute('aria-expanded', String(item.classList.contains('is-open')));
+    menu.className = 'archive-year-menu';
+    menu.id = menu.id || 'archive-years-menu-' + menuIndex;
+    menu.setAttribute('aria-label', '选择年度归档');
+    link.setAttribute('aria-controls', menu.id);
+    if (menu.dataset.archiveMenuSignature !== menuSignature) {
+      menu.innerHTML = archiveMenu(years, currentYear);
+      menu.dataset.archiveMenuSignature = menuSignature;
+    }
+    if (item.dataset.archiveMenuBound === 'true') return;
+    item.dataset.archiveMenuBound = 'true';
+    item.addEventListener('pointerenter', function () {
+      if (window.matchMedia('(hover: hover)').matches) setExpanded(item, true);
+    });
+    item.addEventListener('pointerleave', function () {
+      if (!item.contains(document.activeElement)) setExpanded(item, false);
+    });
+    item.addEventListener('focusin', function () { setExpanded(item, true); });
+    item.addEventListener('focusout', function (event) {
+      if (!item.contains(event.relatedTarget)) setExpanded(item, false);
+    });
+    item.addEventListener('click', function (event) {
+      if (event.target.closest('.archive-year-menu a')) setExpanded(item, false);
+    });
+    link.addEventListener('click', function (event) {
+      if (!window.matchMedia('(hover: none), (max-width: 768px)').matches) return;
+      event.preventDefault();
+      var expanded = item.dataset.archiveTouchOpen !== 'true';
+      item.dataset.archiveTouchOpen = expanded ? 'true' : 'false';
+      setExpanded(item, expanded);
+    });
+  }
+
   function mount() {
     loadYears().then(function (years) {
       if (!years.length) return;
@@ -35,7 +101,7 @@
       });
 
       document.querySelectorAll('.app-nav a').forEach(function (link) {
-        if (link.textContent.trim() === '年度归档') link.setAttribute('href', '#/docs/years/' + latest);
+        if (link.textContent.trim() === '年度归档') enhanceArchiveMenu(link, years, latest);
       });
 
       document.querySelectorAll('.sidebar-nav strong').forEach(function (heading) {
@@ -60,5 +126,18 @@
 
   document.addEventListener('doc-read:rendered', mount);
   document.addEventListener('DOMContentLoaded', mount);
+  document.addEventListener('click', function (event) {
+    document.querySelectorAll('.archive-nav-item.is-open').forEach(function (item) {
+      if (!item.contains(event.target)) setExpanded(item, false);
+    });
+  });
+  document.addEventListener('keydown', function (event) {
+    if (event.key !== 'Escape') return;
+    document.querySelectorAll('.archive-nav-item.is-open').forEach(function (item) {
+      var trigger = item.querySelector(':scope > a');
+      if (trigger && item.contains(document.activeElement)) trigger.focus();
+      setExpanded(item, false);
+    });
+  });
   setTimeout(mount, 300);
 }());

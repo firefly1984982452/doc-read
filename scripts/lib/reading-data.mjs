@@ -160,5 +160,7 @@ export function buildBookMetadata(notes, years) {
     }
   }
 
-  return [...books.values()].sort((a, b) => a.title.localeCompare(b.title, 'zh-CN'));
+  return [...books.values()].sort((a, b) =>
+    a.title.localeCompare(b.title, 'zh-CN') || a.id.localeCompare(b.id, 'zh-CN')
+  );
 }

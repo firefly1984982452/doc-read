@@ -85,22 +85,34 @@ for (const file of textFiles.filter((item) => item.endsWith('.md'))) {
 if (genericAltCount) warnings.push(`${genericAltCount} Markdown images still use generic alt text`);
 
 const indexHtml = await fs.readFile(path.join(root, 'index.html'), 'utf8');
+const navbarMarkdown = await fs.readFile(path.join(root, '_navbar.md'), 'utf8');
+const archiveNavSource = await fs.readFile(path.join(root, 'assets/js/archive-nav.js'), 'utf8');
 if (!indexHtml.includes('<html lang="zh-CN">')) errors.push('index.html must declare lang="zh-CN"');
 if (indexHtml.includes('content="Description"')) errors.push('index.html still contains placeholder description');
 if (indexHtml.includes('cdn.jsdelivr.net')) errors.push('index.html must use local pinned frontend dependencies');
 if (indexHtml.includes('plugins/search.min.js')) errors.push('index.html must use the lazy local search implementation');
 if (!indexHtml.includes('assets/js/route-loader.js')) errors.push('index.html must load route-aware assets');
 if (!indexHtml.includes('id="typo-check"') || !indexHtml.includes('id="typo-dialog"')) errors.push('index.html must include the typo review controls');
-for (const control of ['wechat-copy', 'zhihu-copy']) {
+for (const control of ['wechat-copy', 'zhihu-copy', 'xhs-export']) {
   if (!indexHtml.includes(`id="${control}"`)) errors.push(`index.html must include the ${control} article control`);
 }
-if (!indexHtml.includes('data-tooltip="复制到公众号"') || !indexHtml.includes('data-tooltip="复制到知乎"')) {
-  errors.push('article copy controls must expose visible hover and keyboard-focus labels');
+for (const control of ['xhs-export-toast', 'xhs-export-status-text', 'xhs-export-progress']) {
+  if (!indexHtml.includes(`id="${control}"`)) errors.push(`index.html is missing Xiaohongshu progress control #${control}`);
+}
+if (!indexHtml.includes('data-tooltip="复制到公众号"') || !indexHtml.includes('data-tooltip="复制到知乎"') || !indexHtml.includes('data-tooltip="发布到小红书"')) {
+  errors.push('article tools must expose visible hover and keyboard-focus labels');
 }
 if (!indexHtml.includes('assets/data/typo-rules.js')) errors.push('index.html must preload typo rules for file and Docsify compatibility');
+if (!/- \[年度归档\]\([^\n]+\)\n\s{2,}- \[正在读取年份/.test(navbarMarkdown)) {
+  errors.push('_navbar.md must provide a nested annual archive menu fallback');
+}
+if (!archiveNavSource.includes('archive-year-menu') || !archiveNavSource.includes("assets/data/reading-years.json")) {
+  errors.push('annual archive navigation must build its submenu from generated reading years');
+}
 const routeLoader = await fs.readFile(path.join(root, 'assets/js/route-loader.js'), 'utf8');
 if (!routeLoader.includes('assets/js/section-fold.js')) errors.push('document routes must load the section folding interaction');
 if (!routeLoader.includes('assets/js/wechat-copy.js')) errors.push('reading routes must load the article copy interaction');
+if (!routeLoader.includes('assets/js/xhs-export.js')) errors.push('reading routes must load the Xiaohongshu export interaction');
 const articleCopy = await fs.readFile(path.join(root, 'assets/js/wechat-copy.js'), 'utf8');
 if (!articleCopy.includes("getElementById('zhihu-copy')") || !articleCopy.includes('buildZhihuPayload')) {
   errors.push('article copy interaction must provide a Zhihu rich-text payload');

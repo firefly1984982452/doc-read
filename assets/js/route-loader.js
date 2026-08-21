@@ -23,7 +23,8 @@
     if (isReadingNote) {
       Promise.all([
         window.DocReadResources.script('assets/js/wechat-copy.js'),
-        window.DocReadResources.script('assets/js/typo-checker.js')
+        window.DocReadResources.script('assets/js/typo-checker.js'),
+        window.DocReadResources.script('assets/js/xhs-export.js')
       ]).catch(function (error) { console.error(error); });
     }
   }

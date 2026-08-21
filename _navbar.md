@@ -2,4 +2,5 @@
 - [最近阅读](/docs/latest.md)
 - [全部书目](/docs/library.md)
 - [年度归档](#)
+  - [正在读取年份…](#)
 - [关于](/docs/think/about.md)

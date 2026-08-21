@@ -5,7 +5,13 @@
   "description": "丹的阅读笔记：Docsify 静态阅读档案",
   "scripts": {
     "dev": "node scripts/dev-server.mjs",
+    "serve": "docsify serve .",
+    "xhs:server": "node scripts/xhs-export-server.mjs",
+    "xhs:install": "node scripts/xhs-helper-service.mjs install",
+    "xhs:uninstall": "node scripts/xhs-helper-service.mjs uninstall",
+    "xhs:status": "node scripts/xhs-helper-service.mjs status",
     "generate": "node scripts/generate-site.mjs",
+    "normalize:authors": "node scripts/add-book-authors.mjs",
     "check": "node scripts/check-site.mjs",
     "check:deploy": "node scripts/check-deployment.mjs",
     "check:images": "node scripts/check-images.mjs",
@@ -16,7 +22,8 @@
     "docsify": "^4.13.1",
     "docsify-cli": "4.4.4",
     "docsify-count": "^1.1.0",
-    "docsify-pagination": "^2.10.1"
+    "docsify-pagination": "^2.10.1",
+    "playwright-core": "^1.62.1"
   },
   "engines": {
     "node": ">=20"
