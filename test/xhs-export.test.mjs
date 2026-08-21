@@ -34,7 +34,8 @@ test('Xiaohongshu materials keep the article theme and generate only one sketch 
     assert.match(prompt.content, /3:4/);
     assert.match(prompt.content, /25%/);
   }
-  assert.match(materials.prompts[0].content, /watermark “文章首发微信公众号：彭丹的阅读之旅”/);
+  assert.match(materials.prompts[0].content, /watermark “彭丹的阅读之旅”/);
+  assert.doesNotMatch(materials.prompts[0].content, /文章首发微信公众号/);
   assert.match(materials.analysis, /输出策略：生成一张手绘笔记风封面/);
   assert.doesNotMatch(materials.analysis, /海报风|两张封面/);
   assert.doesNotMatch(materials.outline, /海报风|screen-print|image_count: 2/);

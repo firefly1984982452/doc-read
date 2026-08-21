@@ -126,7 +126,7 @@ function commonPrompt({ title, book, subtitle, classification }) {
     `内容类型：${classification.type}。`,
     '构图要求：上方和中心保留清晰文字安全区；缩略图状态仍能读懂主标题；不要模拟真实出版社封面，不要出现人物照片或品牌商标。',
     '中文排版要求：简体中文，字形完整，不要错字、乱码、拼音或重复文字；主标题最多两行。',
-    'Include the exact, fully legible watermark “文章首发微信公众号：彭丹的阅读之旅” positioned at the bottom-right, approximately 25% opacity. The watermark should be subtle, must not be abbreviated, and must not overlap the title or main illustration.'
+    'Include the exact, fully legible watermark “彭丹的阅读之旅” positioned at the bottom-right, approximately 25% opacity. The watermark should be subtle and must not overlap the title or main illustration.'
   ].join('\n');
 }
 
@@ -168,7 +168,7 @@ export function buildXhsMaterials(markdown, fallbackTitle = '阅读笔记') {
     '- 视觉机会：用书页、纸张与主题象征物建立单一视觉锚点，不复制真实书封',
     '- 输出策略：生成一张手绘笔记风封面',
     '- 画幅：3:4 竖屏',
-    '- 水印：“文章首发微信公众号：彭丹的阅读之旅”，约 25% 透明度，默认右下',
+    '- 水印：“彭丹的阅读之旅”，约 25% 透明度，默认右下',
     ''
   ].join('\n');
   const outline = [
