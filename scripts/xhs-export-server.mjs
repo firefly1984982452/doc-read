@@ -476,7 +476,7 @@ async function runJob(job, body) {
         status: 'completed_with_warnings',
         stage: '正文、截图和文案已保存；手绘封面生成失败',
         progress: 100,
-        warning: `${coverFailures.length} 张封面未生成，可查看 logs 后重试`
+        warning: '手绘封面未生成，可查看 logs 后重试'
       });
     } else {
       updateJob(job, { status: 'completed', stage: '小红书素材已全部保存', progress: 100 });

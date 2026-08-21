@@ -18,6 +18,9 @@ test('Xiaohongshu materials keep the article theme and generate only one sketch 
   const materials = buildXhsMaterials(markdown);
   assert.equal(extractArticleTitle(markdown), '岸见一郎《被讨厌的勇气》思维导图、书摘、读后感');
   assert.equal(materials.prompts.length, 1);
+  assert.equal(materials.prompts[0].filename, '01-cover-sketch.md');
+  assert.equal(materials.prompts[0].output, '01-手绘笔记风.png');
+  assert.equal(materials.prompts[0].style, '手绘笔记风');
   assert.match(materials.copy, /#读书/);
   assert.match(materials.analysis, /方法与心理/);
   assert.match(materials.prompts[0].content, /sketch-notes/);
@@ -145,6 +148,7 @@ test('Xiaohongshu button starts a local job and restores the cursor after comple
       id: 'job-1',
       status: 'completed',
       screenshotCount: 6,
+      coverCount: 1,
       outputDirectory: '/Users/test/Downloads/小红书-待上传/测试《书名》读后感'
     });
   });
@@ -158,6 +162,8 @@ test('Xiaohongshu button starts a local job and restores the cursor after comple
   assert.equal(JSON.parse(calls[0].options.body).path, 'docs/read/测试《书名》.md');
   assert.equal(JSON.parse(calls[0].options.body).siteOrigin, 'http://127.0.0.1:3007');
   assert.match(ui.message.textContent, /已保存 6 张正文截图/);
+  assert.match(ui.message.textContent, /1 张手绘封面/);
+  assert.doesNotMatch(ui.message.textContent, /2 张封面/);
   assert.equal(ui.toast.dataset.state, 'success');
   assert.equal(ui.progress.value, 100);
   assert.equal(ui.progress.hidden, false);
@@ -168,16 +174,16 @@ test('Xiaohongshu button starts a local job and restores the cursor after comple
 test('running Xiaohongshu job shows its real progress below the status text', async () => {
   const ui = await loadXhsExport(async (url, options = {}) => {
     if (options.method === 'POST') return jsonResponse({ id: 'job-progress', progress: 0 });
-    return jsonResponse({ id: 'job-progress', status: 'running', stage: '正在生成手绘封面…', progress: 83 });
+    return jsonResponse({ id: 'job-progress', status: 'running', stage: '正在用 Codex 生成手绘封面…', progress: 60 });
   });
   ui.button.click();
   await flush();
-  assert.match(ui.message.textContent, /83%/);
+  assert.match(ui.message.textContent, /60%/);
   assert.equal(ui.toast.dataset.state, 'loading');
-  assert.equal(ui.progress.value, 83);
+  assert.equal(ui.progress.value, 60);
   assert.equal(ui.progress.hidden, false);
-  assert.equal(ui.progress.getAttribute('aria-valuenow'), '83');
-  assert.equal(ui.progress.getAttribute('aria-valuetext'), '83%');
+  assert.equal(ui.progress.getAttribute('aria-valuenow'), '60');
+  assert.equal(ui.progress.getAttribute('aria-valuetext'), '60%');
   assert.equal(ui.classes.has('xhs-export-busy'), true);
 });
 

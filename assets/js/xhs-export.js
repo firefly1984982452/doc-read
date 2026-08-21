@@ -104,14 +104,15 @@
     window.clearTimeout(pollTimer);
     var folder = job.outputDirectory ? ' 保存位置：' + job.outputDirectory : '';
     if (job.status === 'completed') {
+      var coverCount = Math.max(0, Number(job.coverCount) || 0);
       setButtonState('success', '小红书素材已生成');
-      showStatus('已保存 ' + job.screenshotCount + ' 张正文截图、2 张封面和小红书文案。' + folder, 'success', false, 100);
+      showStatus('已保存 ' + job.screenshotCount + ' 张正文截图、' + coverCount + ' 张手绘封面和小红书文案。' + folder, 'success', false, 100);
       resetSoon('success');
       return;
     }
     if (job.status === 'completed_with_warnings') {
       setButtonState('error', '小红书素材部分完成');
-      showStatus('正文截图和文案已保存，但有封面未生成。' + folder, 'error', false, 100);
+      showStatus('正文截图和文案已保存，但手绘封面未生成。' + folder, 'error', false, 100);
       resetSoon('error');
       return;
     }
