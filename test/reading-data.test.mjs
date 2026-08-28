@@ -44,7 +44,7 @@ test('parseYear calculates monthly records, word totals and stable book ids', ()
     '',
     '## 总字数',
     '',
-    '3+2=5万字',
+    '99=99万字',
     '',
     '## 2026-2【3万字】',
     '',
@@ -57,6 +57,7 @@ test('parseYear calculates monthly records, word totals and stable book ids', ()
   const parsed = parseYear(markdown, 2026, new Map([['docs/read/《测试》', '文学类']]));
   assert.equal(parsed.entries, 2);
   assert.equal(parsed.wordWan, 5);
+  assert.equal(parsed.wordEquation, '3+2=5万字');
   assert.equal(parsed.calculatedWordWan, 5);
   assert.equal(parsed.months[0], 1);
   assert.equal(parsed.months[1], 1);

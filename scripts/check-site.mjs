@@ -111,8 +111,10 @@ if (!archiveNavSource.includes('archive-year-menu') || !archiveNavSource.include
 }
 const routeLoader = await fs.readFile(path.join(root, 'assets/js/route-loader.js'), 'utf8');
 if (!routeLoader.includes('assets/js/section-fold.js')) errors.push('document routes must load the section folding interaction');
+if (!routeLoader.includes('assets/js/year-word-total.js')) errors.push('annual archive routes must load the dynamic word-total interaction');
 if (!routeLoader.includes('assets/js/wechat-copy.js')) errors.push('reading routes must load the article copy interaction');
 if (!routeLoader.includes('assets/js/xhs-export.js')) errors.push('reading routes must load the Xiaohongshu export interaction');
+if (!routeLoader.includes('assets/js/title-copy.js')) errors.push('reading routes must load the compact title and copy interaction');
 const articleCopy = await fs.readFile(path.join(root, 'assets/js/wechat-copy.js'), 'utf8');
 if (!articleCopy.includes("getElementById('zhihu-copy')") || !articleCopy.includes('buildZhihuPayload')) {
   errors.push('article copy interaction must provide a Zhihu rich-text payload');

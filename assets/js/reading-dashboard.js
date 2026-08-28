@@ -98,29 +98,6 @@
     });
   }
 
-  function mountYearWordTotal() {
-    var routeMatch = window.location.hash.match(/^#\/docs\/years\/(\d{4})(?:\.md)?(?:[?#]|$)/);
-    if (!routeMatch) return;
-    var article = document.querySelector('.markdown-section');
-    if (!article) return;
-    discoverReadingData().then(function (data) {
-      if (!document.body.contains(article)) return;
-      var selected = data.years.find(function (item) { return String(item.year) === routeMatch[1]; });
-      if (!selected || !selected.wordEquation) return;
-      var heading = Array.from(article.querySelectorAll('h2')).find(function (element) {
-        return /^(?:总)?字数$/.test(element.textContent.trim());
-      });
-      if (!heading) return;
-      var total = heading.nextElementSibling;
-      if (!total || total.tagName !== 'P') {
-        total = document.createElement('p');
-        heading.insertAdjacentElement('afterend', total);
-      }
-      total.classList.add('year-word-total');
-      total.textContent = selected.wordEquation;
-    });
-  }
-
   function createTone() {
     if (!state.sound) return;
     try {
@@ -417,7 +394,6 @@
   function mountHomeWidgets() {
     mountRecentReading();
     mountLatestReadingPage();
-    mountYearWordTotal();
     mountDashboard();
   }
 

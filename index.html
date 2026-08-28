@@ -19,9 +19,9 @@
   <link rel="icon" href="./assets/images/favicon.svg" type="image/svg+xml">
   <link rel="manifest" href="./site.webmanifest">
   <link rel="stylesheet" href="./assets/vendor/docsify/vue.css">
-  <link rel="stylesheet" href="./assets/css/blog.css?v=4fd87afd06">
+  <link rel="stylesheet" href="./assets/css/blog.css?v=921b6fa0a1">
   <script>
-    window.DOC_READ_BUILD = '4fd87afd06';
+    window.DOC_READ_BUILD = '921b6fa0a1';
     (function () {
       var savedTheme = localStorage.getItem('doc-read-theme');
       var systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -77,7 +77,7 @@
   <div id="wechat-copy-toast" class="wechat-copy-toast" role="status" aria-live="polite" hidden></div>
   <div id="xhs-export-toast" class="wechat-copy-toast xhs-export-toast" role="status" aria-live="polite" aria-atomic="true" hidden>
     <span id="xhs-export-status-text"></span>
-    <progress id="xhs-export-progress" class="xhs-export-progress" max="100" value="0" aria-label="小红书素材生成进度" hidden></progress>
+    <progress id="xhs-export-progress" class="xhs-export-progress" max="100" value="0" aria-label="小红书截图生成进度" hidden></progress>
   </div>
   <dialog id="typo-dialog" class="typo-dialog" aria-labelledby="typo-dialog-title" aria-describedby="typo-dialog-summary">
     <div class="typo-dialog-head">
@@ -95,7 +95,7 @@
   <div id="app">正在打开书房…</div>
   <noscript>这个网站需要启用 JavaScript 才能浏览阅读笔记。</noscript>
 
-  <script src="./assets/data/legacy-routes.js?v=4fd87afd06"></script>
+  <script src="./assets/data/legacy-routes.js?v=921b6fa0a1"></script>
   <script>
     window.$docsify = {
       name: '丹的阅读笔记',
@@ -143,6 +143,7 @@
             document.querySelectorAll('.markdown-section > p').forEach(function (paragraph) {
               var isMetadata = /^\s*date\s*:/i.test(paragraph.textContent);
               var containsImage = Boolean(paragraph.querySelector('img'));
+              paragraph.classList.toggle('reading-date', isReadingNote && isMetadata);
               paragraph.classList.toggle('reading-image-paragraph', containsImage);
               paragraph.classList.toggle('reading-body-paragraph', isReadingNote && !isMetadata && !containsImage);
             });
@@ -168,11 +169,11 @@
   <script src="./assets/vendor/docsify/docsify-pagination.min.js"></script>
   <!-- <script src="./assets/vendor/docsify/countable.min.js"></script> -->
   <script src="./assets/js/site.js"></script>
-  <script src="./assets/data/typo-rules.js?v=4fd87afd06"></script>
-  <script src="./assets/js/resource-loader.js?v=4fd87afd06"></script>
-  <script src="./assets/js/archive-nav.js?v=4fd87afd06"></script>
-  <script src="./assets/js/search.js?v=4fd87afd06"></script>
-  <script src="./assets/js/route-loader.js?v=4fd87afd06"></script>
+  <script src="./assets/data/typo-rules.js?v=921b6fa0a1"></script>
+  <script src="./assets/js/resource-loader.js?v=921b6fa0a1"></script>
+  <script src="./assets/js/archive-nav.js?v=921b6fa0a1"></script>
+  <script src="./assets/js/search.js?v=921b6fa0a1"></script>
+  <script src="./assets/js/route-loader.js?v=921b6fa0a1"></script>
 </body>
 
 </html>

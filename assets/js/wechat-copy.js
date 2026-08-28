@@ -92,6 +92,7 @@
     article.querySelectorAll('.countable, .docsify-copy-code-button, .pagination-item, script, style, button, noscript').forEach(function (element) {
       element.remove();
     });
+    article.querySelectorAll('.article-title-row').forEach(unwrap);
 
     article.querySelectorAll('a.anchor').forEach(unwrap);
     article.querySelectorAll('a').forEach(function (link) {

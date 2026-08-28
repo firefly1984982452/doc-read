@@ -7,7 +7,8 @@
 
   function update() {
     var route = currentRoute();
-    var needsReadingData = route === '#/' || /^#\/docs\/(?:latest|library|years\/)/.test(route);
+    var needsReadingData = route === '#/' || /^#\/docs\/(?:latest|library)(?:[.?/#]|$)/.test(route);
+    var isYearArchive = /^#\/docs\/years\/\d{4}(?:\.md)?(?:[?#]|$)/.test(route);
     var isReadingNote = /^#\/docs\/(?:read|read-history)\//.test(route);
 
     window.DocReadResources.script('assets/js/section-fold.js')
@@ -20,12 +21,19 @@
         .then(function () { document.dispatchEvent(new CustomEvent('doc-read:widgets-ready')); })
         .catch(function (error) { console.error(error); });
     }
+    if (isYearArchive) {
+      window.DocReadResources.script('assets/js/year-word-total.js')
+        .then(function () { window.DocReadYearWordTotal.mount(); })
+        .catch(function (error) { console.error(error); });
+    }
     if (isReadingNote) {
       Promise.all([
         window.DocReadResources.script('assets/js/wechat-copy.js'),
         window.DocReadResources.script('assets/js/typo-checker.js'),
-        window.DocReadResources.script('assets/js/xhs-export.js')
-      ]).catch(function (error) { console.error(error); });
+        window.DocReadResources.script('assets/js/xhs-export.js'),
+        window.DocReadResources.script('assets/js/title-copy.js')
+      ]).then(function () { window.DocReadTitleCopy.mount(); })
+        .catch(function (error) { console.error(error); });
     }
   }
 

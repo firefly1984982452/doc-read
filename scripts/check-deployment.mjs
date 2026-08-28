@@ -34,6 +34,8 @@ for (const relative of [
   'assets/js/resource-loader.js',
   'assets/js/route-loader.js',
   'assets/js/section-fold.js',
+  'assets/js/year-word-total.js',
+  'assets/js/title-copy.js',
   'assets/js/typo-checker.js',
   'assets/js/wechat-copy.js',
   'assets/js/xhs-export.js'

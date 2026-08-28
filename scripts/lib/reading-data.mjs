@@ -71,8 +71,6 @@ export function parseYear(markdown, year, libraryPreferences = new Map()) {
   const wordMonths = new Map();
   const records = [];
   let currentMonth = null;
-  const declaredEquationMatch = markdown.match(/^(\d+(?:\.\d+)?(?:\+\d+(?:\.\d+)?)*=(\d+(?:\.\d+)?)万字)\s*$/m);
-
   for (const line of markdown.split('\n')) {
     const monthMatch = line.match(new RegExp(`^##\\s+${year}-(\\d{1,2})(?!\\d)`));
     if (monthMatch) {
@@ -117,14 +115,13 @@ export function parseYear(markdown, year, libraryPreferences = new Map()) {
     .map((item) => typeof item.explicit === 'number' ? item.explicit : item.books)
     .filter((value) => value > 0);
   const calculatedWordWan = wordParts.length ? wordParts.reduce((sum, value) => sum + value, 0) : null;
-  const declaredWordWan = declaredEquationMatch ? Number(declaredEquationMatch[2]) : null;
-  const wordWan = declaredWordWan ?? calculatedWordWan;
+  const wordWan = calculatedWordWan;
 
   return {
     year,
     entries: records.length,
     wordWan,
-    wordEquation: declaredEquationMatch?.[1] || (wordParts.length ? `${wordParts.join('+')}=${wordWan}万字` : ''),
+    wordEquation: wordParts.length ? `${wordParts.join('+')}=${wordWan}万字` : '',
     calculatedWordWan,
     months,
     records

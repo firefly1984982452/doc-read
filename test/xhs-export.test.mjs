@@ -2,9 +2,9 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import test from 'node:test';
 import vm from 'node:vm';
-import { buildXhsMaterials, extractArticleTitle, planScreenshotPositions, safeFolderName } from '../scripts/lib/xhs-export.mjs';
+import { extractArticleTitle, planScreenshotPositions, safeFolderName } from '../scripts/lib/xhs-export.mjs';
 
-test('Xiaohongshu materials keep the article theme and generate only one sketch cover', () => {
+test('Xiaohongshu screenshot export uses the complete article title', () => {
   const markdown = `# 岸见一郎《被讨厌的勇气》思维导图、书摘、读后感
 
 ## 一、书籍信息
@@ -15,30 +15,16 @@ test('Xiaohongshu materials keep the article theme and generate only one sketch 
 
 ## 三、书摘
 `;
-  const materials = buildXhsMaterials(markdown);
   assert.equal(extractArticleTitle(markdown), '岸见一郎《被讨厌的勇气》思维导图、书摘、读后感');
-  assert.equal(materials.prompts.length, 1);
-  assert.equal(materials.prompts[0].filename, '01-cover-sketch.md');
-  assert.equal(materials.prompts[0].output, '01-手绘笔记风.png');
-  assert.equal(materials.prompts[0].style, '手绘笔记风');
-  assert.match(materials.copy, /#读书/);
-  assert.match(materials.analysis, /方法与心理/);
-  assert.match(materials.prompts[0].content, /sketch-notes/);
-  assert.doesNotMatch(materials.prompts[0].content, /screen-print|preset: poster/);
-  for (const prompt of materials.prompts) {
-    assert.match(prompt.content, /副标题（必须逐字准确）：“阅读笔记”/);
-    assert.doesNotMatch(prompt.content, /值得收藏的阅读启发/);
-  }
-  assert.match(materials.outline, /Text Content: 《被讨厌的勇气》 \/ 阅读笔记/);
-  for (const prompt of materials.prompts) {
-    assert.match(prompt.content, /3:4/);
-    assert.match(prompt.content, /25%/);
-  }
-  assert.match(materials.prompts[0].content, /watermark “彭丹的阅读之旅”/);
-  assert.doesNotMatch(materials.prompts[0].content, /文章首发微信公众号/);
-  assert.match(materials.analysis, /输出策略：生成一张手绘笔记风封面/);
-  assert.doesNotMatch(materials.analysis, /海报风|两张封面/);
-  assert.doesNotMatch(materials.outline, /海报风|screen-print|image_count: 2/);
+});
+
+test('Xiaohongshu helper exports only 1080x1440 screenshots into the article folder', async () => {
+  const source = await fs.readFile(new URL('../scripts/xhs-export-server.mjs', import.meta.url), 'utf8');
+  assert.match(source, /viewport:\s*\{ width: 720, height: 960 \}/);
+  assert.match(source, /deviceScaleFactor:\s*1\.5/);
+  assert.match(source, /path\.join\(directory, filename\)/);
+  assert.doesNotMatch(source, /path\.join\(directory, ['"]正文截图['"]\)/);
+  assert.doesNotMatch(source, /小红书文案\.txt|buildXhsMaterials|generateCoverWithRetry|manifest\.json/);
 });
 
 test('folder names preserve Chinese titles while removing unsafe path characters', () => {
@@ -149,7 +135,6 @@ test('Xiaohongshu button starts a local job and restores the cursor after comple
       id: 'job-1',
       status: 'completed',
       screenshotCount: 6,
-      coverCount: 1,
       outputDirectory: '/Users/test/Downloads/小红书-待上传/测试《书名》读后感'
     });
   });
@@ -162,9 +147,8 @@ test('Xiaohongshu button starts a local job and restores the cursor after comple
   assert.equal(calls[0].options.method, 'POST');
   assert.equal(JSON.parse(calls[0].options.body).path, 'docs/read/测试《书名》.md');
   assert.equal(JSON.parse(calls[0].options.body).siteOrigin, 'http://127.0.0.1:3007');
-  assert.match(ui.message.textContent, /已保存 6 张正文截图/);
-  assert.match(ui.message.textContent, /1 张手绘封面/);
-  assert.doesNotMatch(ui.message.textContent, /2 张封面/);
+  assert.match(ui.message.textContent, /已保存 6 张 1080×1440 截图/);
+  assert.doesNotMatch(ui.message.textContent, /封面|文案/);
   assert.equal(ui.toast.dataset.state, 'success');
   assert.equal(ui.progress.value, 100);
   assert.equal(ui.progress.hidden, false);
@@ -175,16 +159,16 @@ test('Xiaohongshu button starts a local job and restores the cursor after comple
 test('running Xiaohongshu job shows its real progress below the status text', async () => {
   const ui = await loadXhsExport(async (url, options = {}) => {
     if (options.method === 'POST') return jsonResponse({ id: 'job-progress', progress: 0 });
-    return jsonResponse({ id: 'job-progress', status: 'running', stage: '正在用 Codex 生成手绘封面…', progress: 60 });
+    return jsonResponse({ id: 'job-progress', status: 'running', stage: '正在保存第 3/6 张截图（1080×1440）…', progress: 53 });
   });
   ui.button.click();
   await flush();
-  assert.match(ui.message.textContent, /60%/);
+  assert.match(ui.message.textContent, /53%/);
   assert.equal(ui.toast.dataset.state, 'loading');
-  assert.equal(ui.progress.value, 60);
+  assert.equal(ui.progress.value, 53);
   assert.equal(ui.progress.hidden, false);
-  assert.equal(ui.progress.getAttribute('aria-valuenow'), '60');
-  assert.equal(ui.progress.getAttribute('aria-valuetext'), '60%');
+  assert.equal(ui.progress.getAttribute('aria-valuenow'), '53');
+  assert.equal(ui.progress.getAttribute('aria-valuetext'), '53%');
   assert.equal(ui.classes.has('xhs-export-busy'), true);
 });
 

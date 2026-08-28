@@ -548,6 +548,57 @@ body:not(.close) .content { left: var(--sidebar-width); }
   font-size: clamp(2.15rem, 5vw, 3.15rem);
   line-height: 1.3;
 }
+.reading-note-page .article-title-row {
+  align-items: center;
+  border-bottom: 1px solid var(--line);
+  display: grid;
+  gap: .7rem;
+  grid-template-columns: minmax(0, 1fr) auto;
+  margin: .8rem 0 1.1rem;
+  padding-bottom: 1rem;
+}
+.reading-note-page .markdown-section > p.reading-date {
+  margin: .2rem 0 .45rem !important;
+}
+.reading-note-page .markdown-section > p.reading-date + hr {
+  margin: .9rem 0 1.15rem;
+}
+.reading-note-page .article-title-row .article-title {
+  border: 0;
+  font-size: clamp(1.6rem, 2.7vw, 2.2rem);
+  line-height: 1.25;
+  margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  padding: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.reading-note-page .article-title-row .article-title > .anchor {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.title-copy-button {
+  background: color-mix(in srgb, var(--accent), transparent 93%);
+  border: 1px solid color-mix(in srgb, var(--accent), transparent 70%);
+  border-radius: 999px;
+  color: var(--accent);
+  cursor: pointer;
+  font: 600 .7rem/1 system-ui, "PingFang SC", sans-serif;
+  padding: .42rem .62rem;
+  transition: background .16s ease, border-color .16s ease, transform .16s ease;
+  white-space: nowrap;
+}
+.title-copy-button:hover,
+.title-copy-button:focus-visible {
+  background: color-mix(in srgb, var(--accent), transparent 86%);
+  border-color: color-mix(in srgb, var(--accent), transparent 48%);
+  outline: none;
+  transform: translateY(-1px);
+}
+.title-copy-button:disabled { cursor: wait; opacity: .72; transform: none; }
 .markdown-section h2 {
   border: 0;
   color: var(--accent) !important;
@@ -624,6 +675,9 @@ body:not(.close) .content { left: var(--sidebar-width); }
   position: relative;
   text-align: center;
   width: fit-content;
+}
+.reading-note-page .markdown-section h3 {
+  margin: 1.9rem auto 1.1rem;
 }
 .markdown-section h3::after {
   background: var(--accent-soft);
@@ -970,11 +1024,23 @@ div.comments-box {
   body:not(.close) .content { left: 0 !important; transform: none !important; }
   .markdown-section { line-height: 1.82; padding: 5rem 1.35rem 5rem; }
   .markdown-section h1 { font-size: 2.05rem; margin-bottom: 2.5rem; padding-bottom: 1.35rem; }
+  .reading-note-page .article-title-row {
+    gap: .5rem;
+    margin: .35rem 0 .75rem;
+    padding-bottom: .8rem;
+  }
+  .reading-note-page .article-title-row .article-title {
+    font-size: 1.42rem;
+    margin: 0;
+    padding: 0;
+  }
+  .title-copy-button { font-size: .64rem; padding: .38rem .5rem; }
   .markdown-section h2 { font-size: 1.38rem; margin-top: 1.1rem; padding-left: 1rem; }
   .markdown-section h2.has-section-fold { padding-left: 2.85rem; }
   .markdown-section h2::before { width: 6px; }
   .section-fold-toggle { height: 1.6rem; left: .72rem; width: 1.6rem; }
   .markdown-section h3 { font-size: 1.2rem; margin-top: 2.6rem; }
+  .reading-note-page .markdown-section h3 { margin: 1.5rem auto .9rem; }
   .markdown-section table { display: block; overflow-x: auto; white-space: nowrap; }
   .cover-main { margin: 0 1.35rem !important; }
   .cover { background-position: 61% center !important; }

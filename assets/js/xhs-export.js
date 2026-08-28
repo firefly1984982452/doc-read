@@ -7,7 +7,7 @@
   var progressBar = document.getElementById('xhs-export-progress');
   var activeJob = '';
   var pollTimer = 0;
-  var idleLabel = button ? (button.getAttribute('aria-label') || '生成小红书素材') : '生成小红书素材';
+  var idleLabel = button ? (button.getAttribute('aria-label') || '发布到小红书') : '发布到小红书';
 
   function currentMarkdownPath() {
     var route = (window.location.hash || '').split('?')[0].replace(/^#\//, '');
@@ -103,20 +103,14 @@
     activeJob = '';
     window.clearTimeout(pollTimer);
     var folder = job.outputDirectory ? ' 保存位置：' + job.outputDirectory : '';
-    if (job.status === 'completed') {
-      var coverCount = Math.max(0, Number(job.coverCount) || 0);
-      setButtonState('success', '小红书素材已生成');
-      showStatus('已保存 ' + job.screenshotCount + ' 张正文截图、' + coverCount + ' 张手绘封面和小红书文案。' + folder, 'success', false, 100);
+    if (job.status === 'completed' || job.status === 'completed_with_warnings') {
+      var warning = job.warning ? ' 提示：' + job.warning + '。' : '';
+      setButtonState('success', '小红书截图已生成');
+      showStatus('已保存 ' + job.screenshotCount + ' 张 1080×1440 截图。' + warning + folder, 'success', false, 100);
       resetSoon('success');
       return;
     }
-    if (job.status === 'completed_with_warnings') {
-      setButtonState('error', '小红书素材部分完成');
-      showStatus('正文截图和文案已保存，但手绘封面未生成。' + folder, 'error', false, 100);
-      resetSoon('error');
-      return;
-    }
-    setButtonState('error', '小红书素材生成失败');
+    setButtonState('error', '小红书截图生成失败');
     showStatus((job.error || '生成没有完成。') + folder, 'error');
     resetSoon('error');
   }
@@ -130,8 +124,8 @@
       }
       var progressValue = normalizedProgress(job.progress);
       var progress = progressValue === null ? '' : ' ' + Math.round(progressValue) + '%';
-      setButtonState('loading', job.stage || '正在生成小红书素材…');
-      showStatus((job.stage || '正在生成小红书素材…') + progress, 'loading', true, progressValue);
+      setButtonState('loading', job.stage || '正在生成小红书截图…');
+      showStatus((job.stage || '正在生成小红书截图…') + progress, 'loading', true, progressValue);
       pollTimer = window.setTimeout(pollJob, 1500);
     }).catch(function (error) {
       activeJob = '';
@@ -143,15 +137,15 @@
 
   function startExport() {
     if (window.location.protocol === 'file:') {
-      showStatus('小红书素材需要读取当前文章并保存本地文件，请通过 docsify serve 提供的 http://localhost 地址打开网站。', 'error');
+      showStatus('小红书截图需要读取当前文章并保存本地文件，请通过 docsify serve 提供的 http://localhost 地址打开网站。', 'error');
       return;
     }
     var path = currentMarkdownPath();
     if (!path) {
-      showStatus('当前页面不是阅读笔记，无法生成小红书素材。', 'error');
+      showStatus('当前页面不是阅读笔记，无法生成小红书截图。', 'error');
       return;
     }
-    setButtonState('loading', '正在准备小红书素材…');
+    setButtonState('loading', '正在准备小红书截图…');
     showStatus('正在连接本地助手，请稍候…', 'loading', true, 0);
     apiRequest('/__doc_read/xhs/jobs', {
       method: 'POST',
@@ -159,7 +153,7 @@
       body: JSON.stringify({ path: path, title: articleTitle(), siteOrigin: currentSiteOrigin() })
     }, 15_000).then(function (job) {
       activeJob = job.id;
-      showStatus('任务已经开始，正在生成移动端截图…', 'loading', true, normalizedProgress(job.progress) ?? 0);
+      showStatus('任务已经开始，正在生成 1080×1440 移动端截图…', 'loading', true, normalizedProgress(job.progress) ?? 0);
       pollJob();
     }).catch(function (error) {
       setButtonState('error', '小红书本地助手未连接');

@@ -105,7 +105,7 @@ async function install() {
   launchctl(['kickstart', '-k', service]);
   const status = await waitUntilReady();
   console.log(`小红书本地助手已安装并启动：${service}`);
-  console.log(`Chrome：${status.chrome ? '就绪' : '未找到'}；Codex：${status.codex ? '就绪' : '未找到'}`);
+  console.log(`Chrome：${status.chrome ? '就绪' : '未找到'}`);
   console.log(`输出目录：${status.outputRoot}`);
 }
 
@@ -123,7 +123,7 @@ async function status() {
     return;
   }
   const health = await waitUntilReady();
-  console.log(`小红书本地助手正在运行；Chrome：${health.chrome ? '就绪' : '未找到'}；Codex：${health.codex ? '就绪' : '未找到'}`);
+  console.log(`小红书本地助手正在运行；Chrome：${health.chrome ? '就绪' : '未找到'}`);
   console.log(`输出目录：${health.outputRoot}`);
 }
 
