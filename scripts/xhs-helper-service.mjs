@@ -100,7 +100,13 @@ async function install() {
   const temporary = `${plist}.tmp-${process.pid}`;
   await fs.writeFile(temporary, plistSource(), 'utf8');
   await fs.rename(temporary, plist);
-  launchctl(['bootstrap', domain, plist]);
+  const bootstrap = launchctl(['bootstrap', domain, plist], true);
+  if (bootstrap.status !== 0) {
+    const legacyLoad = launchctl(['load', '-w', plist], true);
+    if (legacyLoad.status !== 0) {
+      throw new Error((bootstrap.stderr || bootstrap.stdout || legacyLoad.stderr || legacyLoad.stdout || '无法加载小红书本地助手').trim());
+    }
+  }
   launchctl(['enable', service]);
   launchctl(['kickstart', '-k', service]);
   const status = await waitUntilReady();

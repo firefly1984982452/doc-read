@@ -25,6 +25,11 @@ test('Xiaohongshu helper exports only 1080x1440 screenshots into the article fol
   assert.match(source, /path\.join\(directory, filename\)/);
   assert.doesNotMatch(source, /path\.join\(directory, ['"]正文截图['"]\)/);
   assert.doesNotMatch(source, /小红书文案\.txt|buildXhsMaterials|generateCoverWithRetry|manifest\.json/);
+  assert.match(source, /fileURLToPath\(url\)/);
+  assert.match(source, /path\.resolve\(root, ['"]index\.html['"]\)/);
+  assert.match(source, /application\/javascript; charset=utf-8/);
+  assert.match(source, /\/__doc_read\/xhs\/file\/jobs/);
+  assert.match(source, /origin === ['"]null['"]\) return false/);
 });
 
 test('folder names preserve Chinese titles while removing unsafe path characters', () => {
@@ -62,14 +67,26 @@ function fakeElement(attributes = {}) {
   };
 }
 
-async function loadXhsExport(fetchImpl) {
+async function loadXhsExport(fetchImpl, locationOverrides = {}, scriptLoader) {
   const source = await fs.readFile(new URL('../assets/js/xhs-export.js', import.meta.url), 'utf8');
   const button = fakeElement({ 'aria-label': '发布到小红书' });
   const toast = fakeElement();
   const message = fakeElement();
   const progress = fakeElement({ max: '100', value: '0' });
   const classes = new Set();
+  let window;
+  const head = {
+    appendChild(script) {
+      script.parentNode = head;
+      if (scriptLoader) {
+        Promise.resolve().then(() => scriptLoader(script, window)).catch(() => script.onerror?.());
+      }
+      return script;
+    },
+    removeChild(script) { script.parentNode = null; }
+  };
   const document = {
+    head,
     documentElement: {
       classList: {
         toggle(name, force) { if (force) classes.add(name); else classes.delete(name); }
@@ -84,17 +101,18 @@ async function loadXhsExport(fetchImpl) {
         'xhs-export-progress': progress
       }[id] || null;
     },
+    createElement(name) { return { nodeName: String(name).toUpperCase(), parentNode: null, async: false, src: '', onerror: null }; },
     querySelector(selector) { return selector === '.markdown-section h1' ? { textContent: '测试《书名》读后感' } : null; }
   };
-  const window = {
+  window = {
     clearTimeout() {},
-    location: {
+    location: Object.assign({
       hash: '#/docs/read/测试《书名》',
       href: 'http://127.0.0.1:3007/#/docs/read/测试《书名》',
       hostname: '127.0.0.1',
       origin: 'http://127.0.0.1:3007',
       protocol: 'http:'
-    },
+    }, locationOverrides),
     setTimeout() { return 1; }
   };
   window.window = window;
@@ -154,6 +172,34 @@ test('Xiaohongshu button starts a local job and restores the cursor after comple
   assert.equal(ui.progress.hidden, false);
   assert.equal(ui.progress.getAttribute('aria-valuenow'), '100');
   assert.equal(ui.classes.has('xhs-export-busy'), false);
+});
+
+test('local file page can start the same Xiaohongshu screenshot job', async () => {
+  const calls = [];
+  const ui = await loadXhsExport(async () => { throw new Error('file mode must not use fetch'); }, {
+    href: 'file:///Users/pengdan/pd/study/github/doc/doc-read/index.html#/docs/read/测试《书名》',
+    hostname: '',
+    origin: 'null',
+    protocol: 'file:'
+  }, (script, window) => {
+    const url = new URL(script.src);
+    calls.push(url);
+    const callback = url.searchParams.get('callback');
+    if (url.pathname.endsWith('/file/jobs')) {
+      window.DocReadXhsJsonp[callback]({ id: 'job-file', progress: 0 });
+      return;
+    }
+    window.DocReadXhsJsonp[callback]({ id: 'job-file', status: 'completed', screenshotCount: 2, outputDirectory: '/tmp/测试《书名》读后感' });
+  });
+  ui.button.click();
+  await flush();
+  assert.equal(calls.length, 2);
+  assert.equal(calls[0].pathname, '/__doc_read/xhs/file/jobs');
+  assert.equal(calls[0].searchParams.get('path'), 'docs/read/测试《书名》.md');
+  assert.equal(calls[0].searchParams.get('siteOrigin'), 'file:///Users/pengdan/pd/study/github/doc/doc-read/index.html');
+  assert.equal(calls[1].pathname, '/__doc_read/xhs/file/jobs/job-file');
+  assert.match(ui.message.textContent, /已保存 2 张 1080×1440 截图/);
+  assert.equal(ui.toast.dataset.state, 'success');
 });
 
 test('running Xiaohongshu job shows its real progress below the status text', async () => {

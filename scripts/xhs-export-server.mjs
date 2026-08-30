@@ -48,6 +48,23 @@ function sendJson(response, status, body) {
   response.end(JSON.stringify(body));
 }
 
+function callbackId(value) {
+  const id = String(value || '');
+  if (!/^[A-Za-z0-9_-]{8,80}$/.test(id)) throw Object.assign(new Error('无效的本地页面回调'), { status: 400 });
+  return id;
+}
+
+function sendScriptResponse(response, callback, body) {
+  const id = callbackId(callback);
+  const payload = JSON.stringify(body).replace(/[\u2028\u2029]/g, character => character === '\u2028' ? '\\u2028' : '\\u2029');
+  response.writeHead(200, {
+    'Content-Type': 'application/javascript; charset=utf-8',
+    'Cache-Control': 'no-store',
+    'X-Content-Type-Options': 'nosniff'
+  });
+  response.end(`window.DocReadXhsJsonp&&window.DocReadXhsJsonp[${JSON.stringify(id)}]&&window.DocReadXhsJsonp[${JSON.stringify(id)}](${payload});`);
+}
+
 function configuredOrigins() {
   const origins = new Set();
   const configured = [defaultSiteOrigin, ...String(process.env.DOC_READ_ALLOWED_ORIGINS || '').split(',')];
@@ -75,7 +92,27 @@ function loopbackOrigin(value) {
 }
 
 function normalizedSiteOrigin(value) {
-  const origin = loopbackOrigin(value) || loopbackOrigin(defaultSiteOrigin);
+  const requested = String(value || '').trim();
+  if (requested) {
+    let url;
+    try { url = new URL(requested); } catch { /* Validate as a loopback URL below. */ }
+    if (url?.protocol === 'file:') {
+      try {
+        url.hash = '';
+        url.search = '';
+        const entry = path.resolve(fileURLToPath(url));
+        const expected = path.resolve(root, 'index.html');
+        if (entry !== expected) throw new Error();
+        return url.href;
+      } catch {
+        throw Object.assign(new Error('本地截图只允许访问当前项目的 index.html'), { status: 403 });
+      }
+    }
+    const requestedOrigin = loopbackOrigin(requested);
+    if (!requestedOrigin) throw new Error('移动端截图只允许访问当前项目的 index.html 或本机 Docsify 服务');
+    return requestedOrigin + '/';
+  }
+  const origin = loopbackOrigin(defaultSiteOrigin);
   if (!origin) throw new Error('移动端截图只允许访问本机 Docsify 服务');
   return origin + '/';
 }
@@ -280,7 +317,7 @@ async function runJob(job, body) {
   try {
     updateJob(job, { status: 'running', stage: '正在读取文章…', progress: 3 });
     const { markdown } = await readableMarkdown(body.path);
-    const title = extractArticleTitle(markdown, body.title);
+    const title = extractArticleTitle(markdown, path.basename(body.path, '.md'));
     const directory = await uniqueOutputDirectory(title);
     updateJob(job, { title, outputDirectory: directory, stage: '正在生成 1080×1440 连续截图…', progress: 8 });
     const capture = await captureScreenshots({
@@ -305,25 +342,45 @@ async function runJob(job, body) {
   }
 }
 
-async function startJob(request, response) {
-  if (!setCors(request, response)) return sendJson(response, 403, { error: '不允许的页面来源' });
-  if (runningJob) return sendJson(response, 409, { error: '已有一篇文章正在生成小红书截图，请完成后再试' });
+async function createJob(body) {
+  if (runningJob) throw Object.assign(new Error('已有一篇文章正在生成小红书截图，请完成后再试'), { status: 409 });
   const reservation = `reserving-${randomUUID()}`;
   runningJob = reservation;
   try {
-    const body = await requestBody(request);
     const relative = String(body.path || '');
     await readableMarkdown(relative);
     const siteOrigin = normalizedSiteOrigin(body.siteOrigin);
     const id = randomUUID();
-    const job = { id, status: 'queued', stage: '准备开始…', progress: 0, title: safeFolderName(body.title || '阅读笔记'), createdAt: Date.now(), updatedAt: Date.now() };
+    const job = { id, status: 'queued', stage: '准备开始…', progress: 0, title: safeFolderName(path.basename(relative, '.md')), createdAt: Date.now(), updatedAt: Date.now() };
     jobs.set(id, job);
     runningJob = id;
-    sendJson(response, 202, cleanJob(job));
-    setImmediate(() => runJob(job, { path: relative, title: String(body.title || ''), siteOrigin }));
+    setImmediate(() => runJob(job, { path: relative, siteOrigin }));
+    return cleanJob(job);
   } catch (error) {
     if (runningJob === reservation) runningJob = '';
     throw error;
+  }
+}
+
+async function startJob(request, response) {
+  if (!setCors(request, response)) return sendJson(response, 403, { error: '不允许的页面来源' });
+  const job = await createJob(await requestBody(request));
+  sendJson(response, 202, job);
+}
+
+async function startFileJob(url, response) {
+  const callback = url.searchParams.get('callback');
+  try { callbackId(callback); }
+  catch (error) { return sendJson(response, error.status || 400, { error: error.message }); }
+  try {
+    const job = await createJob({
+      path: url.searchParams.get('path') || '',
+      title: url.searchParams.get('title') || '',
+      siteOrigin: url.searchParams.get('siteOrigin') || ''
+    });
+    sendScriptResponse(response, callback, job);
+  } catch (error) {
+    sendScriptResponse(response, callback, { error: error.message || '无法启动小红书截图', status: error.status || 500 });
   }
 }
 
@@ -340,6 +397,15 @@ const server = http.createServer(async (request, response) => {
       if (!setCors(request, response)) return sendJson(response, 403, { error: '不允许的页面来源' });
       response.writeHead(204, { 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type' });
       return response.end();
+    }
+    if (request.method === 'GET' && url.pathname === '/__doc_read/xhs/file/jobs') {
+      return await startFileJob(url, response);
+    }
+    const fileJobMatch = url.pathname.match(/^\/__doc_read\/xhs\/file\/jobs\/([0-9a-f-]+)$/i);
+    if (request.method === 'GET' && fileJobMatch) {
+      const callback = url.searchParams.get('callback');
+      const job = jobs.get(fileJobMatch[1]);
+      return sendScriptResponse(response, callback, job ? cleanJob(job) : { error: '找不到这次生成任务', status: 404 });
     }
     if (request.method === 'GET' && url.pathname === '/__doc_read/xhs/status') {
       if (!setCors(request, response)) return sendJson(response, 403, { error: '不允许的页面来源' });

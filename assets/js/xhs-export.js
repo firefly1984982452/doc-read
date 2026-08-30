@@ -7,6 +7,8 @@
   var progressBar = document.getElementById('xhs-export-progress');
   var activeJob = '';
   var pollTimer = 0;
+  var jsonpSequence = 0;
+  var jsonpCallbacks = window.DocReadXhsJsonp = window.DocReadXhsJsonp || {};
   var idleLabel = button ? (button.getAttribute('aria-label') || '发布到小红书') : '发布到小红书';
 
   function currentMarkdownPath() {
@@ -21,6 +23,12 @@
   }
 
   function currentSiteOrigin() {
+    if (window.location.protocol === 'file:') {
+      var localEntry = new URL(window.location.href);
+      localEntry.hash = '';
+      localEntry.search = '';
+      return localEntry.href;
+    }
     if (!/^https?:$/.test(window.location.protocol || '')) return '';
     if (!/^(?:localhost|127\.0\.0\.1|\[::1\])$/i.test(window.location.hostname || '')) return '';
     return window.location.origin || new URL(window.location.href).origin;
@@ -38,6 +46,73 @@
         return body;
       });
     }).finally(function () { window.clearTimeout(timer); });
+  }
+
+  function scriptRequest(pathname, values, timeout) {
+    return new Promise(function (resolve, reject) {
+      var callback = 'docReadXhs' + Date.now().toString(36) + String(++jsonpSequence);
+      var target = new URL(helperUrl(pathname));
+      var script = document.createElement('script');
+      var timer = 0;
+      var settled = false;
+
+      target.searchParams.set('callback', callback);
+      Object.keys(values || {}).forEach(function (key) {
+        target.searchParams.set(key, String(values[key] == null ? '' : values[key]));
+      });
+
+      function cleanup() {
+        if (settled) return;
+        settled = true;
+        window.clearTimeout(timer);
+        delete jsonpCallbacks[callback];
+        script.onerror = null;
+        if (script.parentNode) script.parentNode.removeChild(script);
+      }
+
+      jsonpCallbacks[callback] = function (body) {
+        cleanup();
+        if (body && body.error) {
+          var error = new Error(body.error);
+          error.status = body.status;
+          reject(error);
+          return;
+        }
+        resolve(body);
+      };
+      script.async = true;
+      script.src = target.href;
+      script.onerror = function () {
+        cleanup();
+        reject(new Error('无法连接小红书本地助手'));
+      };
+      timer = window.setTimeout(function () {
+        cleanup();
+        var error = new Error('连接超时');
+        error.name = 'AbortError';
+        reject(error);
+      }, timeout || 10_000);
+      (document.head || document.documentElement).appendChild(script);
+    });
+  }
+
+  function startJob(payload) {
+    if (window.location.protocol === 'file:') {
+      return scriptRequest('/__doc_read/xhs/file/jobs', payload, 15_000);
+    }
+    return apiRequest('/__doc_read/xhs/jobs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    }, 15_000);
+  }
+
+  function readJob(id) {
+    var encodedId = encodeURIComponent(id);
+    if (window.location.protocol === 'file:') {
+      return scriptRequest('/__doc_read/xhs/file/jobs/' + encodedId, {}, 12_000);
+    }
+    return apiRequest('/__doc_read/xhs/jobs/' + encodedId, {}, 12_000);
   }
 
   function normalizedProgress(value) {
@@ -117,7 +192,7 @@
 
   function pollJob() {
     if (!activeJob) return;
-    apiRequest('/__doc_read/xhs/jobs/' + encodeURIComponent(activeJob), {}, 12_000).then(function (job) {
+    readJob(activeJob).then(function (job) {
       if (job.status === 'completed' || job.status === 'completed_with_warnings' || job.status === 'failed') {
         finish(job);
         return;
@@ -136,29 +211,26 @@
   }
 
   function startExport() {
-    if (window.location.protocol === 'file:') {
-      showStatus('小红书截图需要读取当前文章并保存本地文件，请通过 docsify serve 提供的 http://localhost 地址打开网站。', 'error');
-      return;
-    }
     var path = currentMarkdownPath();
     if (!path) {
       showStatus('当前页面不是阅读笔记，无法生成小红书截图。', 'error');
       return;
     }
+    var siteOrigin = currentSiteOrigin();
+    if (!siteOrigin) {
+      showStatus('当前页面地址不受支持，请使用本地 index.html 或本机 Docsify 地址。', 'error');
+      return;
+    }
     setButtonState('loading', '正在准备小红书截图…');
     showStatus('正在连接本地助手，请稍候…', 'loading', true, 0);
-    apiRequest('/__doc_read/xhs/jobs', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ path: path, title: articleTitle(), siteOrigin: currentSiteOrigin() })
-    }, 15_000).then(function (job) {
+    startJob({ path: path, title: articleTitle(), siteOrigin: siteOrigin }).then(function (job) {
       activeJob = job.id;
       showStatus('任务已经开始，正在生成 1080×1440 移动端截图…', 'loading', true, normalizedProgress(job.progress) ?? 0);
       pollJob();
     }).catch(function (error) {
       setButtonState('error', '小红书本地助手未连接');
       var detail = error && error.name === 'AbortError' ? '连接超时' : (error.message || '连接失败');
-      showStatus('没有连接到小红书本地助手（' + detail + '）。请在项目目录执行一次 npm run xhs:install，之后继续使用 docsify serve 即可。', 'error');
+      showStatus('没有连接到小红书本地助手（' + detail + '）。请在项目目录执行一次 npm run xhs:install 后重试。', 'error');
       resetSoon('error');
     });
   }
