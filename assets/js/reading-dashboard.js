@@ -202,8 +202,10 @@
       var active = String(state.year) === String(item.year);
       var height = Math.max(12, Math.round(item.entries / max * 100));
       return '<button type="button" data-reading-year="' + item.year + '" aria-pressed="' + active + '" aria-label="' + item.year + ' 年，' + item.entries + ' 本阅读记录">' +
-        '<span class="reading-bar-value">' + item.entries + '</span>' +
-        '<span class="reading-bar-track"><i style="height:' + height + '%"></i></span>' +
+        '<span class="reading-bar-track"><span class="reading-bar-column" style="height:' + height + '%">' +
+          '<span class="reading-bar-value">' + item.entries + '</span>' +
+          '<i aria-hidden="true"></i>' +
+        '</span></span>' +
         '<small>' + item.year + '</small>' +
       '</button>';
     }).join('');

@@ -122,7 +122,7 @@ if (!articleCopy.includes("getElementById('zhihu-copy')") || !articleCopy.includ
 if (/assets\/js\/(?:reading-data|reading-years|search-index)\.js/.test(indexHtml)) {
   errors.push('index.html must not load generated content as JavaScript globals');
 }
-if (/\?v=(?:build|\d{8})/.test(indexHtml)) errors.push('index.html must use the generated content-based asset version');
+if (/\?v=(?:build|\d{8})(?=["'&#\s>]|$)/.test(indexHtml)) errors.push('index.html must use the generated content-based asset version');
 const generatedDataFiles = [
   'assets/data/reading-data.json',
   'assets/data/reading-years.json',
