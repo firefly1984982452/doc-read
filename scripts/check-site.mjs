@@ -93,13 +93,13 @@ if (indexHtml.includes('cdn.jsdelivr.net')) errors.push('index.html must use loc
 if (indexHtml.includes('plugins/search.min.js')) errors.push('index.html must use the lazy local search implementation');
 if (!indexHtml.includes('assets/js/route-loader.js')) errors.push('index.html must load route-aware assets');
 if (!indexHtml.includes('id="typo-check"') || !indexHtml.includes('id="typo-dialog"')) errors.push('index.html must include the typo review controls');
-for (const control of ['wechat-copy', 'zhihu-copy', 'xhs-export']) {
+for (const control of ['wechat-copy', 'zhihu-copy', 'xhs-export', 'random-reading']) {
   if (!indexHtml.includes(`id="${control}"`)) errors.push(`index.html must include the ${control} article control`);
 }
 for (const control of ['xhs-export-toast', 'xhs-export-status-text', 'xhs-export-progress']) {
   if (!indexHtml.includes(`id="${control}"`)) errors.push(`index.html is missing Xiaohongshu progress control #${control}`);
 }
-if (!indexHtml.includes('data-tooltip="复制到公众号"') || !indexHtml.includes('data-tooltip="复制到知乎"') || !indexHtml.includes('data-tooltip="发布到小红书"')) {
+if (!indexHtml.includes('data-tooltip="复制到公众号"') || !indexHtml.includes('data-tooltip="复制到知乎"') || !indexHtml.includes('data-tooltip="发布到小红书"') || !indexHtml.includes('data-tooltip="随机一篇内容"')) {
   errors.push('article tools must expose visible hover and keyboard-focus labels');
 }
 if (!indexHtml.includes('assets/data/typo-rules.js')) errors.push('index.html must preload typo rules for file and Docsify compatibility');
@@ -114,6 +114,7 @@ if (!routeLoader.includes('assets/js/section-fold.js')) errors.push('document ro
 if (!routeLoader.includes('assets/js/year-word-total.js')) errors.push('annual archive routes must load the dynamic word-total interaction');
 if (!routeLoader.includes('assets/js/wechat-copy.js')) errors.push('reading routes must load the article copy interaction');
 if (!routeLoader.includes('assets/js/xhs-export.js')) errors.push('reading routes must load the Xiaohongshu export interaction');
+if (!routeLoader.includes('assets/js/random-reading.js')) errors.push('reading routes must load the random reading interaction');
 if (!routeLoader.includes('assets/js/title-copy.js')) errors.push('reading routes must load the compact title and copy interaction');
 const articleCopy = await fs.readFile(path.join(root, 'assets/js/wechat-copy.js'), 'utf8');
 if (!articleCopy.includes("getElementById('zhihu-copy')") || !articleCopy.includes('buildZhihuPayload')) {

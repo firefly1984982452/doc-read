@@ -31,6 +31,7 @@
         window.DocReadResources.script('assets/js/wechat-copy.js'),
         window.DocReadResources.script('assets/js/typo-checker.js'),
         window.DocReadResources.script('assets/js/xhs-export.js'),
+        window.DocReadResources.script('assets/js/random-reading.js'),
         window.DocReadResources.script('assets/js/title-copy.js')
       ]).then(function () { window.DocReadTitleCopy.mount(); })
         .catch(function (error) { console.error(error); });

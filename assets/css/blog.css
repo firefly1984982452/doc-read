@@ -237,6 +237,8 @@ a { color: var(--accent); }
 .wechat-copy { --tool-icon: #0bac67; }
 .zhihu-copy { --tool-icon: #1772f6; }
 .xhs-export { --tool-icon: #ff2442; }
+.random-reading { --tool-icon: #8b22e8; }
+.random-reading-icon rect { fill: none; stroke: currentColor; stroke-width: 1.8; }
 .wechat-copy svg path:first-of-type { opacity: .96; }
 .wechat-copy svg path:nth-of-type(2) { opacity: .72; }
 .wechat-copy svg circle { fill: var(--surface); opacity: .98; }
@@ -272,6 +274,7 @@ html[data-theme='dark'] .article-tool::before { border-left-color: #f1ebf6; }
 html[data-theme='dark'] .wechat-copy { --tool-icon: #43d88d; }
 html[data-theme='dark'] .zhihu-copy { --tool-icon: #69a4ff; }
 html[data-theme='dark'] .xhs-export { --tool-icon: #ff7187; }
+html[data-theme='dark'] .random-reading { --tool-icon: #c996ff; }
 .xhs-export-busy,
 .xhs-export-busy * { cursor: progress !important; }
 .wechat-copy-toast {

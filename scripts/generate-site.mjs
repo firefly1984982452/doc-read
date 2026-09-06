@@ -202,6 +202,7 @@ const versionSourceAssets = [
   'assets/data/search-index.json',
   'assets/js/wechat-copy.js',
   'assets/js/xhs-export.js',
+  'assets/js/random-reading.js',
   'assets/js/typo-checker.js',
   'assets/js/section-fold.js',
   'assets/js/year-word-total.js',

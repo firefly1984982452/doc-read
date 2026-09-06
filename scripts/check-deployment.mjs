@@ -38,7 +38,8 @@ for (const relative of [
   'assets/js/title-copy.js',
   'assets/js/typo-checker.js',
   'assets/js/wechat-copy.js',
-  'assets/js/xhs-export.js'
+  'assets/js/xhs-export.js',
+  'assets/js/random-reading.js'
 ]) {
   if (!await exists(relative)) errors.push(`deployment file is missing: ${relative}`);
 }
