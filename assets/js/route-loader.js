@@ -10,6 +10,9 @@
     var needsReadingData = route === '#/' || /^#\/docs\/(?:latest|library)(?:[.?/#]|$)/.test(route);
     var isYearArchive = /^#\/docs\/years\/\d{4}(?:\.md)?(?:[?#]|$)/.test(route);
     var isReadingNote = /^#\/docs\/(?:read|read-history)\//.test(route);
+    var decodedRoute = route;
+    try { decodedRoute = decodeURIComponent(route); } catch (error) { /* Ignore malformed routes. */ }
+    var isRuohua = /^#\/docs\/other\/若华阅读笔记(?:\.md)?$/.test(decodedRoute);
 
     window.DocReadResources.script('assets/js/section-fold.js')
       .catch(function (error) { console.error(error); });
@@ -34,6 +37,13 @@
         window.DocReadResources.script('assets/js/random-reading.js'),
         window.DocReadResources.script('assets/js/title-copy.js')
       ]).then(function () { window.DocReadTitleCopy.mount(); })
+        .catch(function (error) { console.error(error); });
+    }
+    if (isRuohua) {
+      Promise.all([
+        window.DocReadResources.script('assets/js/title-copy.js'),
+        window.DocReadResources.script('assets/js/ruohua-copy.js')
+      ]).then(function () { window.DocReadRuohuaCopy.mount(); })
         .catch(function (error) { console.error(error); });
     }
   }
