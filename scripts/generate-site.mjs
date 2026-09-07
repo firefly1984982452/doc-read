@@ -207,6 +207,7 @@ const versionSourceAssets = [
   'assets/js/section-fold.js',
   'assets/js/year-word-total.js',
   'assets/js/title-copy.js',
+  'assets/js/ruohua-copy.js',
   ...searchChunks.map((_, index) => `assets/data/search-chunks/${index}.json`)
 ];
 const versionSource = await Promise.all(versionSourceAssets.map((asset) => fs.readFile(path.join(root, asset))));

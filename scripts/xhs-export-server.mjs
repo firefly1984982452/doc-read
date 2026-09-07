@@ -6,6 +6,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright-core';
 import { extractArticleTitle, planScreenshotPositions, safeFolderName } from './lib/xhs-export.mjs';
+import { sendZhihuDraft } from './lib/zhihu-draft.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const writableRoots = [path.join(root, 'docs/read'), path.join(root, 'docs/read-history')];
@@ -160,7 +161,8 @@ function cleanJob(job) {
     outputDirectory: job.outputDirectory || '',
     screenshotCount: job.screenshotCount || 0,
     warning: job.warning || '',
-    error: job.error || ''
+    error: job.error || '',
+    draftUrl: job.draftUrl || ''
   };
 }
 
@@ -318,6 +320,23 @@ async function runJob(job, body) {
     updateJob(job, { status: 'running', stage: '正在读取文章…', progress: 3 });
     const { markdown } = await readableMarkdown(body.path);
     const title = extractArticleTitle(markdown, path.basename(body.path, '.md'));
+    if (body.target === 'zhihu') {
+      const browser = await chromium.launch({ executablePath: await chromeExecutable(), headless: true, args: ['--allow-file-access-from-files'] });
+      let payload;
+      try {
+        const page = await browser.newPage();
+        await page.goto(captureUrl(body.path, body.siteOrigin), { waitUntil: 'domcontentloaded' });
+        await page.waitForFunction(() => window.DocReadArticleCopy && window.marked);
+        payload = await page.evaluate(markdown => {
+          const article = document.createElement('article');
+          article.innerHTML = window.marked(markdown.replace(/^# .+\r?\n/, ''));
+          return window.DocReadArticleCopy.buildZhihuPayload(article);
+        }, markdown);
+      } finally { await browser.close(); }
+      const result = await sendZhihuDraft({ relative: body.path, markdown, payload, title, progress(stage, progress) { updateJob(job, { title, stage, progress }); } });
+      updateJob(job, { ...result, status: 'completed', progress: 100, stage: '知乎内容已就绪，未发布；请确认自动保存状态' });
+      return;
+    }
     const directory = await uniqueOutputDirectory(title);
     updateJob(job, { title, outputDirectory: directory, stage: '正在生成 1080×1440 连续截图…', progress: 8 });
     const capture = await captureScreenshots({
@@ -336,7 +355,7 @@ async function runJob(job, body) {
       warning: capture.imageWarning
     });
   } catch (error) {
-    updateJob(job, { status: 'failed', stage: '截图没有完成', error: error.message || '生成小红书截图失败' });
+    updateJob(job, { status: 'failed', draftUrl: error.draftUrl || '', stage: body.target === 'zhihu' ? '知乎导入未完成，请检查 Chrome 中的草稿' : '截图没有完成', error: error.message || '本地助手执行失败' });
   } finally {
     if (runningJob === job.id) runningJob = '';
   }
@@ -354,7 +373,7 @@ async function createJob(body) {
     const job = { id, status: 'queued', stage: '准备开始…', progress: 0, title: safeFolderName(path.basename(relative, '.md')), createdAt: Date.now(), updatedAt: Date.now() };
     jobs.set(id, job);
     runningJob = id;
-    setImmediate(() => runJob(job, { path: relative, siteOrigin }));
+    setImmediate(() => runJob(job, { path: relative, siteOrigin, target: body.target === 'zhihu' ? 'zhihu' : 'xhs' }));
     return cleanJob(job);
   } catch (error) {
     if (runningJob === reservation) runningJob = '';
@@ -364,7 +383,8 @@ async function createJob(body) {
 
 async function startJob(request, response) {
   if (!setCors(request, response)) return sendJson(response, 403, { error: '不允许的页面来源' });
-  const job = await createJob(await requestBody(request));
+  const body = await requestBody(request);
+  const job = await createJob({ ...body, target: request.url.startsWith('/__doc_read/zhihu/') ? 'zhihu' : 'xhs' });
   sendJson(response, 202, job);
 }
 
@@ -376,7 +396,8 @@ async function startFileJob(url, response) {
     const job = await createJob({
       path: url.searchParams.get('path') || '',
       title: url.searchParams.get('title') || '',
-      siteOrigin: url.searchParams.get('siteOrigin') || ''
+      siteOrigin: url.searchParams.get('siteOrigin') || '',
+      target: url.pathname.startsWith('/__doc_read/zhihu/') ? 'zhihu' : 'xhs'
     });
     sendScriptResponse(response, callback, job);
   } catch (error) {
@@ -398,10 +419,10 @@ const server = http.createServer(async (request, response) => {
       response.writeHead(204, { 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type' });
       return response.end();
     }
-    if (request.method === 'GET' && url.pathname === '/__doc_read/xhs/file/jobs') {
+    if (request.method === 'GET' && ['/__doc_read/xhs/file/jobs', '/__doc_read/zhihu/file/jobs'].includes(url.pathname)) {
       return await startFileJob(url, response);
     }
-    const fileJobMatch = url.pathname.match(/^\/__doc_read\/xhs\/file\/jobs\/([0-9a-f-]+)$/i);
+    const fileJobMatch = url.pathname.match(/^\/__doc_read\/(?:xhs|zhihu)\/file\/jobs\/([0-9a-f-]+)$/i);
     if (request.method === 'GET' && fileJobMatch) {
       const callback = url.searchParams.get('callback');
       const job = jobs.get(fileJobMatch[1]);
@@ -419,8 +440,8 @@ const server = http.createServer(async (request, response) => {
         running: Boolean(runningJob)
       });
     }
-    if (request.method === 'POST' && url.pathname === '/__doc_read/xhs/jobs') return await startJob(request, response);
-    const jobMatch = url.pathname.match(/^\/__doc_read\/xhs\/jobs\/([0-9a-f-]+)$/i);
+    if (request.method === 'POST' && /^\/__doc_read\/(xhs|zhihu)\/jobs$/.test(url.pathname)) return await startJob(request, response);
+    const jobMatch = url.pathname.match(/^\/__doc_read\/(?:xhs|zhihu)\/jobs\/([0-9a-f-]+)$/i);
     if (request.method === 'GET' && jobMatch) {
       if (!setCors(request, response)) return sendJson(response, 403, { error: '不允许的页面来源' });
       const job = jobs.get(jobMatch[1]);

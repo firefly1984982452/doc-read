@@ -69,6 +69,20 @@ function textNode(value) {
   return { nodeType: 3, nodeValue: value };
 }
 
+test('Zhihu export separates adjacent excerpts without changing their text', async () => {
+  const { api } = await loadCopy();
+  const article = mutableElement('article', {}, []);
+  article.outerHTML = '<article><blockquote><p>第一条</p></blockquote>\n<blockquote><p>第二条</p></blockquote></article>';
+  article.cloneNode = () => article;
+  article.querySelectorAll = selector => selector === 'blockquote' ? [{}, {}] : [];
+  const result = api.buildZhihuPayload(article);
+  assert.match(result.html, /<\/blockquote><p>\u200b<\/p><blockquote>/);
+  assert.equal(result.quoteCount, 2);
+  assert.match(result.html, /第一条/);
+  assert.match(result.html, /第二条/);
+  assert.doesNotMatch(result.html, /<hr/);
+});
+
 test('public URLs replace local routes, anchors and assets with canonical URLs', async () => {
   const { api } = await loadCopy();
   assert.equal(

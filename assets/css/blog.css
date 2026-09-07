@@ -625,6 +625,12 @@ body:not(.close) .content { left: var(--sidebar-width); }
   width: 7px;
 }
 .markdown-section h2.has-section-fold { padding-left: 3.25rem; }
+.markdown-section h2.has-ruohua-copy { display: flex; align-items: center; gap: .65rem; }
+.markdown-section h2.has-ruohua-copy > .anchor { flex: 1; min-width: 0; }
+.ruohua-copy-button { flex-shrink: 0; margin-left: auto; }
+.ruohua-note-page .markdown-section p { white-space: pre-line; }
+.ruohua-note-page .markdown-section > p.ruohua-body-paragraph { text-indent: 2em; text-indent: 2em each-line; }
+@media print { .ruohua-copy-button { display: none !important; } }
 .section-fold-toggle {
   align-items: center;
   background: linear-gradient(145deg, color-mix(in srgb, var(--accent), white 82%), color-mix(in srgb, var(--accent), white 68%));

@@ -19,6 +19,7 @@
     "build": "npm run generate && npm run check && npm run test && npm run check:deploy"
   },
   "devDependencies": {
+    "chrome-devtools-mcp": "1.8.0",
     "docsify": "^4.13.1",
     "docsify-cli": "4.4.4",
     "docsify-count": "^1.1.0",

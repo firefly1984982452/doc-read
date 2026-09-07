@@ -293,8 +293,13 @@
   function buildZhihuPayload(source) {
     var article = zhihuArticle(source);
     return {
-      html: article.outerHTML,
-      text: articlePlainText(article)
+      // Draft.js merges adjacent quote blocks. A non-quote spacer keeps each
+      // original excerpt separate without adding visible text or dividers.
+      html: article.outerHTML.replace(/<\/blockquote>\s*(?=<blockquote\b)/gi, '</blockquote><p>\u200b</p>'),
+      text: articlePlainText(article),
+      imageAlts: Array.from(article.querySelectorAll('img')).map(function (image) { return image.getAttribute('alt') || ''; }),
+      quoteCount: article.querySelectorAll('blockquote').length,
+      quotes: Array.from(article.querySelectorAll('blockquote')).map(function (quote) { return quote.textContent || ''; })
     };
   }
 
@@ -452,11 +457,66 @@
     buildWechatPayload,
     '已复制紫色富文本，打开公众号编辑器直接粘贴即可。'
   );
-  bindCopyButton(
-    zhihuButton,
-    buildZhihuPayload,
-    '已复制知乎富文本，打开知乎编辑器直接粘贴即可。'
-  );
+  function zhihuRequest(id, payload) {
+    var local = location.protocol === 'file:';
+    var route = '/__doc_read/zhihu/' + (local ? 'file/' : '') + 'jobs' + (id ? '/' + encodeURIComponent(id) : '');
+    var url = new URL(route, window.DOC_READ_XHS_API_URL || 'http://127.0.0.1:3002');
+    if (!local) {
+      var controller = new AbortController();
+      var requestTimer = setTimeout(function () { controller.abort(); }, 15000);
+      return fetch(url.href, Object.assign({ signal: controller.signal }, id ? {} : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }))
+        .then(function (r) { return r.json(); }).finally(function () { clearTimeout(requestTimer); });
+    }
+    return new Promise(function (resolve, reject) {
+      var callbacks = window.DocReadXhsJsonp = window.DocReadXhsJsonp || {};
+      var key = 'zhihu' + Date.now().toString(36) + Math.random().toString(36).slice(2);
+      var script = document.createElement('script');
+      function cleanup() { clearTimeout(timer); delete callbacks[key]; script.remove(); }
+      var timer = setTimeout(function () { cleanup(); reject(new Error('连接超时，请运行 npm run xhs:install 更新本地助手')); }, 15000);
+      callbacks[key] = function (body) { cleanup(); resolve(body); };
+      url.searchParams.set('callback', key);
+      Object.keys(payload || {}).forEach(function (k) { url.searchParams.set(k, payload[k]); });
+      script.onerror = function () { cleanup(); reject(new Error('无法连接本地助手，请运行 npm run xhs:install')); };
+      script.src = url.href; document.head.appendChild(script);
+    });
+  }
+  if (zhihuButton) {
+    zhihuButton.setAttribute('aria-label', '送到知乎草稿');
+    zhihuButton.dataset.tooltip = '送到知乎草稿（Shift 点击仅复制）';
+    zhihuButton.addEventListener('click', async function (event) {
+      if (zhihuButton.disabled) return;
+      if (!document.querySelector('.markdown-section h1')) { showToast('无法读取当前文章，请等待页面加载完成', 'error'); return; }
+      if (event && event.shiftKey) {
+        var copied = buildZhihuPayload(document.querySelector('.markdown-section'));
+        await writeClipboard(copied.html, copied.text);
+        showToast('已复制知乎富文本', 'success'); return;
+      }
+      var route;
+      try { route = decodeURIComponent(location.hash.split('?')[0].replace(/^#\//, '')).replace(/\.md$/, '') + '.md'; } catch (_) { return; }
+      if (!/^(docs\/read|docs\/read-history)\/.+\.md$/.test(route)) return;
+      zhihuButton.disabled = true;
+      zhihuButton.setAttribute('aria-busy', 'true');
+      function status(message) { toast.textContent = message; toast.hidden = false; clearTimeout(toast.docReadTimer); }
+      try {
+        status('正在连接本地助手…');
+        var entry = new URL(location.href); entry.hash = ''; entry.search = '';
+        var job = await zhihuRequest('', { path: route, siteOrigin: location.protocol === 'file:' ? entry.href : location.origin });
+        var deadline = Date.now() + 10 * 60 * 1000;
+        while (!job.error && job.status !== 'completed' && job.status !== 'failed') {
+          status((job.progress || 0) + '% · ' + job.stage);
+          if (Date.now() > deadline) throw new Error('等待超时，请检查 Chrome；已有草稿不会自动删除');
+          await new Promise(function (resolve) { setTimeout(resolve, 1200); });
+          job = await zhihuRequest(job.id);
+        }
+        if (job.error || job.status === 'failed') throw new Error(job.error || job.stage);
+        status('知乎内容已就绪，未发布。' + (job.warning || '请确认知乎自动保存状态。'));
+        if (job.draftUrl && /^https:\/\/zhuanlan\.zhihu\.com\/p\/\d+\/edit$/.test(job.draftUrl)) {
+          var link = document.createElement('a'); link.href = job.draftUrl; link.textContent = '打开草稿'; link.target = '_blank'; link.rel = 'noopener'; toast.appendChild(link);
+        }
+      } catch (error) { status(error.message + '（Shift 点击知乎按钮仍可仅复制）'); }
+      finally { zhihuButton.disabled = false; zhihuButton.removeAttribute('aria-busy'); }
+    });
+  }
 
   document.addEventListener('doc-read:rendered', updateVisibility);
   window.addEventListener('hashchange', hideUntilRendered);

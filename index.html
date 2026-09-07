@@ -19,9 +19,9 @@
   <link rel="icon" href="./assets/images/favicon.svg" type="image/svg+xml">
   <link rel="manifest" href="./site.webmanifest">
   <link rel="stylesheet" href="./assets/vendor/docsify/vue.css">
-  <link rel="stylesheet" href="./assets/css/blog.css?v=791d10a50a">
+  <link rel="stylesheet" href="./assets/css/blog.css?v=93d5812959">
   <script>
-    window.DOC_READ_BUILD = '791d10a50a';
+    window.DOC_READ_BUILD = '93d5812959';
     (function () {
       var savedTheme = localStorage.getItem('doc-read-theme');
       var systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -108,7 +108,7 @@
   <div id="app">正在打开书房…</div>
   <noscript>这个网站需要启用 JavaScript 才能浏览阅读笔记。</noscript>
 
-  <script src="./assets/data/legacy-routes.js?v=791d10a50a"></script>
+  <script src="./assets/data/legacy-routes.js?v=93d5812959"></script>
   <script>
     window.$docsify = {
       name: '丹的阅读笔记',
@@ -147,15 +147,23 @@
               path: route ? route.replace(/\.md$/, '') + '.md' : '',
               markdown: markdown
             };
+            if (route.replace(/\.md$/, '') === 'docs/other/若华阅读笔记') {
+              return markdown.replace(/^[ \t]*\[手绘漫画链接\]\([ \t]*\)[ \t]*(?:\r?\n|$)/gm, '');
+            }
             return markdown;
           });
           hook.doneEach(function () {
             var articleTitle = document.querySelector('.markdown-section h1');
             var isReadingNote = /^#\/docs\/(?:read|read-history)\//.test(window.location.hash);
             document.body.classList.toggle('reading-note-page', isReadingNote);
+            var isRuohuaNote = window.DOC_READ_PAGE_SOURCE && window.DOC_READ_PAGE_SOURCE.path === 'docs/other/若华阅读笔记.md';
+            document.body.classList.toggle('ruohua-note-page', Boolean(isRuohuaNote));
             document.querySelectorAll('.markdown-section > p').forEach(function (paragraph) {
               var isMetadata = /^\s*date\s*:/i.test(paragraph.textContent);
               var containsImage = Boolean(paragraph.querySelector('img'));
+              var onlyLink = paragraph.children.length === 1 && paragraph.firstElementChild.tagName === 'A' && paragraph.textContent.trim() === paragraph.firstElementChild.textContent.trim();
+              var isReadingTime = /^\s*阅读时间\s*[:：]/.test(paragraph.textContent);
+              paragraph.classList.toggle('ruohua-body-paragraph', Boolean(isRuohuaNote) && !isMetadata && !isReadingTime && !onlyLink && !containsImage);
               paragraph.classList.toggle('reading-date', isReadingNote && isMetadata);
               paragraph.classList.toggle('reading-image-paragraph', containsImage);
               paragraph.classList.toggle('reading-body-paragraph', isReadingNote && !isMetadata && !containsImage);
@@ -182,11 +190,11 @@
   <script src="./assets/vendor/docsify/docsify-pagination.min.js"></script>
   <!-- <script src="./assets/vendor/docsify/countable.min.js"></script> -->
   <script src="./assets/js/site.js"></script>
-  <script src="./assets/data/typo-rules.js?v=791d10a50a"></script>
-  <script src="./assets/js/resource-loader.js?v=791d10a50a"></script>
-  <script src="./assets/js/archive-nav.js?v=791d10a50a"></script>
-  <script src="./assets/js/search.js?v=791d10a50a"></script>
-  <script src="./assets/js/route-loader.js?v=791d10a50a"></script>
+  <script src="./assets/data/typo-rules.js?v=93d5812959"></script>
+  <script src="./assets/js/resource-loader.js?v=93d5812959"></script>
+  <script src="./assets/js/archive-nav.js?v=93d5812959"></script>
+  <script src="./assets/js/search.js?v=93d5812959"></script>
+  <script src="./assets/js/route-loader.js?v=93d5812959"></script>
 </body>
 
 </html>
