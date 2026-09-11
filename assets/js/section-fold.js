@@ -34,6 +34,10 @@
   }
 
   function savedCollapsed(key) {
+    var route = currentRoute();
+    try { route = decodeURIComponent(route); } catch (error) { /* Keep malformed routes unchanged. */ }
+    // Ruohua starts as a compact list on each page load, regardless of old saved states.
+    if (/^#\/docs\/other\/若华阅读笔记(?:\.md)?$/.test(route)) return true;
     try { return window.sessionStorage.getItem(key) === '1'; }
     catch (error) { return false; }
   }
