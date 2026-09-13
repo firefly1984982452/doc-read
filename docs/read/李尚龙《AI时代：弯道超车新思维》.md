@@ -29,7 +29,7 @@ date: 2026-09-05 16:22:39
 
 ## 二、思维导图
 
-![思维导图](https://s41.ax1x.com/2026/09/06/pnA8Hu4.png)
+![《AI时代：弯道超车新思维》思维导图 1](https://s41.ax1x.com/2026/09/06/pnA8Hu4.png)
 
 ![未来不会被AI代替的12个技能](https://s41.ax1x.com/2026/09/06/pnAGpvD.png)
 

@@ -8,7 +8,8 @@
     if (dataPromise) return dataPromise;
     dataPromise = window.DOC_READ_DATA && Array.isArray(window.DOC_READ_DATA.years)
       ? Promise.resolve(window.DOC_READ_DATA)
-      : Promise.reject(new Error('阅读数据尚未生成，请先运行 npm run generate'));
+      : Promise.reject(new Error('阅读数据暂时不可用'));
+    dataPromise = dataPromise.catch(function (error) { dataPromise = null; throw error; });
     return dataPromise;
   }
 
@@ -65,7 +66,7 @@
     }).catch(function () {
       if (!document.body.contains(root)) return;
       root.dataset.loading = 'false';
-      root.innerHTML = '<p class="reading-list-loading">最新阅读记录读取失败，请刷新页面重试。</p>';
+      root.innerHTML = '<p class="reading-list-loading">最新阅读记录读取失败。<button type="button" data-reading-retry>重试</button></p>';
     });
   }
 
@@ -94,7 +95,7 @@
     }).catch(function () {
       if (!document.body.contains(root)) return;
       root.dataset.loading = 'false';
-      root.innerHTML = '<p class="reading-list-loading">最近阅读读取失败，请刷新页面重试。</p>';
+      root.innerHTML = '<p class="reading-list-loading">最近阅读读取失败。<button type="button" data-reading-retry>重试</button></p>';
     });
   }
 
@@ -389,7 +390,8 @@
     }).catch(function () {
       if (!document.body.contains(root)) return;
       root.dataset.loading = 'false';
-      root.innerHTML = '<p class="reading-dashboard-loading">年度数据读取失败，请刷新页面重试。</p>';
+      root.dataset.mounted = 'false';
+      root.innerHTML = '<p class="reading-dashboard-loading">年度数据读取失败。<button type="button" data-reading-retry>重试</button></p>';
     });
   }
 

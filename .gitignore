@@ -3,5 +3,6 @@
 .env.local
 node_modules/
 .cache/
-reports/
+reports/*
+!reports/错别字校对报告.md
 .codex-backups/

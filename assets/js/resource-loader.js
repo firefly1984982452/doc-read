@@ -28,13 +28,20 @@
     return run();
   }
 
+  function fetchResource(relative, retryNumber) {
+    var controller = typeof global.AbortController === 'function' ? new global.AbortController() : null;
+    var timer = controller ? global.setTimeout(function () { controller.abort(); }, 12000) : null;
+    return global.fetch(asset(relative, retryNumber), {
+      cache: retryNumber ? 'reload' : 'default',
+      signal: controller ? controller.signal : undefined
+    }).finally(function () { if (timer) global.clearTimeout(timer); });
+  }
+
   function json(relative, options) {
     if (jsonRequests.has(relative)) return jsonRequests.get(relative);
     var attempts = Math.max(1, Number(options && options.attempts) || 3);
     var request = retry(function (retryNumber) {
-      return global.fetch(asset(relative, retryNumber), {
-        cache: retryNumber ? 'reload' : 'default'
-      }).then(function (response) {
+      return fetchResource(relative, retryNumber).then(function (response) {
         if (!response.ok) throw new Error('无法读取 ' + relative + '（HTTP ' + response.status + '）');
         return response.json();
       });
@@ -50,9 +57,7 @@
     if (textRequests.has(relative)) return textRequests.get(relative);
     var attempts = Math.max(1, Number(options && options.attempts) || 3);
     var request = retry(function (retryNumber) {
-      return global.fetch(asset(relative, retryNumber), {
-        cache: retryNumber ? 'reload' : 'default'
-      }).then(function (response) {
+      return fetchResource(relative, retryNumber).then(function (response) {
         if (!response.ok) throw new Error('无法读取 ' + relative + '（HTTP ' + response.status + '）');
         return response.text();
       });

@@ -5,6 +5,14 @@
     return (window.location.hash || '#/').split('?')[0];
   }
 
+  var readingRequest = null;
+  function readingState(message, retry) {
+    document.querySelectorAll('#recent-reading-list, #reading-dashboard, #latest-reading-page').forEach(function (element) {
+      if (element.dataset.mounted === 'true') return;
+      element.innerHTML = '<p role="status">' + message + (retry ? ' <button type="button" data-reading-retry>重试</button>' : '') + '</p>';
+    });
+  }
+
   function update() {
     var route = currentRoute();
     var needsReadingData = route === '#/' || /^#\/docs\/(?:latest|library)(?:[.?/#]|$)/.test(route);
@@ -18,11 +26,14 @@
       .catch(function (error) { console.error(error); });
 
     if (needsReadingData) {
-      window.DocReadResources.json('assets/data/reading-data.json')
-        .then(function (data) { window.DOC_READ_DATA = data; })
-        .then(function () { return window.DocReadResources.script('assets/js/reading-dashboard.js'); })
-        .then(function () { document.dispatchEvent(new CustomEvent('doc-read:widgets-ready')); })
-        .catch(function (error) { console.error(error); });
+      if (!readingRequest) {
+        readingRequest = window.DocReadResources.json('assets/data/reading-data.json')
+          .then(function (data) { window.DOC_READ_DATA = data; })
+          .then(function () { return window.DocReadResources.script('assets/js/reading-dashboard.js'); })
+          .then(function () { document.dispatchEvent(new CustomEvent('doc-read:widgets-ready')); })
+          .catch(function () { readingState('阅读数据加载失败，请检查网络后重试。', true); })
+          .finally(function () { readingRequest = null; });
+      }
     }
     if (isYearArchive) {
       window.DocReadResources.script('assets/js/year-word-total.js')
@@ -48,6 +59,11 @@
     }
   }
 
+  document.addEventListener('click', function (event) {
+    if (!event.target.closest('[data-reading-retry]')) return;
+    readingState('正在重新读取阅读数据…', false);
+    update();
+  });
   window.addEventListener('hashchange', update);
   document.addEventListener('doc-read:rendered', update);
   document.addEventListener('DOMContentLoaded', update);

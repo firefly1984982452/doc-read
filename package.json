@@ -16,7 +16,8 @@
     "check:deploy": "node scripts/check-deployment.mjs",
     "check:images": "node scripts/check-images.mjs",
     "test": "node --test",
-    "build": "npm run generate && npm run check && npm run test && npm run check:deploy"
+    "build": "npm run generate && npm run check && npm run test && npm run check:deploy",
+    "test:browser": "node --test browser-tests/site.mjs"
   },
   "devDependencies": {
     "chrome-devtools-mcp": "1.8.0",

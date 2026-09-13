@@ -53,7 +53,8 @@ for (const file of readingFiles) {
   const h1Count = contents.split('\n').filter((line) => /^#\s+/.test(line)).length;
   if (h1Count === 0) errors.push(`${relative} must contain a level-one heading`);
   if (h1Count > 1) warnings.push(`${relative} contains ${h1Count} level-one headings; keep the legacy structure unless intentionally reorganizing it`);
-  if (!/^date:\s*\d{4}-\d{2}-\d{2}/mi.test(contents)) warnings.push(`${relative} has no standard date metadata`);
+  if (!/^date:[ \t]*(?:\d{4}-\d{2}(?:-\d{2})?(?:[ \t]+\d{2}:\d{2}:\d{2})?|unknown)[ \t]*$/mi.test(contents)) warnings.push(`${relative} has no standard date metadata`);
+  if (/^date:[ \t]*unknown[ \t]*$/mi.test(contents) && !contents.includes('<!-- 日期依据：')) errors.push(`${relative} must explain its unknown date`);
 }
 
 const libraryMarkdown = await fs.readFile(path.join(root, 'docs/library.md'), 'utf8');

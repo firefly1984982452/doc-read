@@ -6,6 +6,8 @@
   var contentPromise = null;
   var contentItems = [];
   var latestQuery = '';
+  var loadedChunks = new Map();
+  var normalizedItems = new WeakMap();
 
   function escapeHtml(value) {
     return String(value).replace(/[&<>"']/g, function (character) {
@@ -43,8 +45,13 @@
     var terms = query.toLocaleLowerCase('zh-CN').split(/\s+/).filter(Boolean);
     if (!terms.length) return [];
     return items.map(function (item) {
-      var title = item.title.toLocaleLowerCase('zh-CN');
-      var text = titleOnly ? '' : (item.text || '').toLocaleLowerCase('zh-CN');
+      var normalized = normalizedItems.get(item);
+      if (!normalized) {
+        normalized = { title: item.title.toLocaleLowerCase('zh-CN'), text: (item.text || '').toLocaleLowerCase('zh-CN') };
+        normalizedItems.set(item, normalized);
+      }
+      var title = normalized.title;
+      var text = titleOnly ? '' : normalized.text;
       var score = 0;
       for (var index = 0; index < terms.length; index += 1) {
         var term = terms[index];
@@ -75,6 +82,7 @@
     var results = container.querySelector('[data-search-results]');
     if (!query) {
       results.hidden = true;
+      results.setAttribute('aria-busy', 'false');
       results.innerHTML = '';
       return;
     }
@@ -98,18 +106,23 @@
     if (contentPromise) return contentPromise;
     contentPromise = loadIndex().then(function () {
       var count = Number(searchManifest && searchManifest.chunkCount || 0);
-      var sequence = Promise.resolve();
-      for (var index = 0; index < count; index += 1) {
-        (function (chunkIndex) {
-          sequence = sequence.then(function () {
-            return loadJson('assets/data/search-chunks/' + chunkIndex + '.json').then(function (chunk) {
-              contentItems = contentItems.concat(chunk);
-              if (onProgress) onProgress(chunkIndex + 1 < count);
-            });
+      var next = 0;
+      var failure = null;
+      function worker() {
+        if (next >= count) return Promise.resolve();
+        var chunkIndex = next++;
+        var request = loadedChunks.has(chunkIndex)
+          ? Promise.resolve()
+          : loadJson('assets/data/search-chunks/' + chunkIndex + '.json').then(function (chunk) {
+            loadedChunks.set(chunkIndex, chunk);
+            contentItems = Array.from(loadedChunks.values()).reduce(function (all, items) { return all.concat(items); }, []);
+            if (onProgress) onProgress(true);
           });
-        }(index));
+        return request.catch(function (error) { failure = error; }).then(worker);
       }
-      return sequence;
+      return Promise.all(Array.from({ length: Math.min(3, count) }, worker)).then(function () {
+        if (failure) throw failure;
+      });
     }).catch(function (error) {
       contentPromise = null;
       throw error;
@@ -131,44 +144,62 @@
     sidebar.insertBefore(container, sidebar.firstChild);
 
     var input = container.querySelector('input');
-    input.addEventListener('focus', loadIndex);
-    input.addEventListener('input', function () {
-      latestQuery = input.value.trim().toLocaleLowerCase('zh-CN');
-      if (!latestQuery) {
-        render(container, [], '', false);
-        return;
-      }
+    var debounceTimer;
+    var progressTimer;
+    var queryVersion = 0;
+    function scheduleRender(items, loading) {
+      clearTimeout(progressTimer);
+      progressTimer = setTimeout(function () { render(container, items, latestQuery, loading); }, 80);
+    }
+    function runSearch() {
+      var version = queryVersion;
+      if (!latestQuery) return;
       container.classList.add('is-loading');
       loadIndex().then(function (items) {
+        if (version !== queryVersion) return;
         render(container, items, latestQuery, true);
-        return loadContentChunks(function (loading) {
-          render(container, items, latestQuery, loading);
-        });
+        return loadContentChunks(function (loading) { scheduleRender(items, loading); });
       }).then(function () {
+        if (version !== queryVersion) return;
+        clearTimeout(progressTimer);
         container.classList.remove('is-loading');
-        return loadIndex();
-      }).then(function (items) {
-        render(container, items, latestQuery, false);
+        render(container, searchManifest.items, latestQuery, false);
       }).catch(function () {
+        if (version !== queryVersion) return;
+        clearTimeout(progressTimer);
         container.classList.remove('is-loading');
+        render(container, searchManifest ? searchManifest.items : [], latestQuery, false);
         var results = container.querySelector('[data-search-results]');
-        results.hidden = false;
-        results.innerHTML = '<p class="search-empty">搜索索引加载失败，请刷新后重试。</p>';
+        results.insertAdjacentHTML('beforeend', '<p class="search-empty">部分搜索内容加载失败。<button type="button" data-search-retry>重试</button></p>');
       });
+    }
+    function clearSearch() {
+      queryVersion += 1;
+      clearTimeout(debounceTimer);
+      clearTimeout(progressTimer);
+      input.value = '';
+      latestQuery = '';
+      container.classList.remove('is-loading');
+      render(container, [], '', false);
+    }
+    input.addEventListener('focus', function () { loadIndex().catch(function () { /* Retried when searching. */ }); });
+    input.addEventListener('input', function () {
+      queryVersion += 1;
+      latestQuery = input.value.trim().toLocaleLowerCase('zh-CN');
+      clearTimeout(debounceTimer);
+      if (!latestQuery) { clearSearch(); return; }
+      debounceTimer = setTimeout(runSearch, 180);
     });
     input.addEventListener('keydown', function (event) {
       if (event.key === 'Escape') {
-        input.value = '';
-        latestQuery = '';
-        render(container, [], '', false);
+        clearSearch();
         input.blur();
       }
     });
     container.addEventListener('click', function (event) {
+      if (event.target.closest('[data-search-retry]')) { queryVersion += 1; runSearch(); return; }
       if (!event.target.closest('.matching-post')) return;
-      input.value = '';
-      latestQuery = '';
-      render(container, [], '', false);
+      clearSearch();
     });
   }
 

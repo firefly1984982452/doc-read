@@ -96,3 +96,9 @@ test('buildBookMetadata merges note and annual metadata without duplication', ()
   assert.equal(books[0].wordWan, 3);
   assert.deepEqual(books[0].readings, [{ year: 2026, month: 8, wordWan: 3 }]);
 });
+
+test('note metadata preserves month precision and never invents an unknown date', () => {
+  assert.equal(noteMetadata('# 标题\ndate: 2023-02\n', 'docs/read/example.md').date, '2023-02');
+  assert.equal(noteMetadata('# 标题\ndate: unknown\n', 'docs/read/example.md').date, null);
+  assert.equal(noteMetadata('# 标题\ndate: 2023-04-28 13:42:18\n', 'docs/read/example.md').date, '2023-04-28');
+});

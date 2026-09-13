@@ -93,6 +93,18 @@ for (const relative of noteFiles) {
   searchItems.push({ title: metadata.title, path: metadata.path, text: plainText(markdown) });
 }
 
+const catalog = [
+  '# 完整书目索引',
+  '',
+  `共收录 ${catalogItems.length} 篇阅读笔记。此页由脚本自动生成，按标题排序；查找具体内容时也可以使用左侧全文搜索。`,
+  '',
+  ...catalogItems
+    .sort((a, b) => a.title.localeCompare(b.title, 'zh-CN'))
+    .map((item) => `- [${item.title}](${item.path})`),
+  ''
+].join('\n');
+await fs.writeFile(path.join(root, 'docs/catalog.md'), catalog, 'utf8');
+
 for (const relative of markdownFiles.filter((file) => !noteFiles.includes(file))) {
   const markdown = await fs.readFile(path.join(root, relative), 'utf8');
   searchItems.push({
@@ -159,18 +171,6 @@ await fs.writeFile(
   `${JSON.stringify(years.map(({ year }) => year))}\n`,
   'utf8'
 );
-
-const catalog = [
-  '# 完整书目索引',
-  '',
-  `共收录 ${catalogItems.length} 篇阅读笔记。此页由脚本自动生成，按标题排序；查找具体内容时也可以使用左侧全文搜索。`,
-  '',
-  ...catalogItems
-    .sort((a, b) => a.title.localeCompare(b.title, 'zh-CN'))
-    .map((item) => `- [${item.title}](${item.path})`),
-  ''
-].join('\n');
-await fs.writeFile(path.join(root, 'docs/catalog.md'), catalog, 'utf8');
 
 const routes = ['', 'docs/latest.md', 'docs/library.md', 'docs/catalog.md', ...markdownFiles];
 const uniqueRoutes = [...new Set(routes)];

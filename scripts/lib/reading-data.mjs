@@ -11,7 +11,7 @@ export function noteMetadata(markdown, relativePath, libraryPreferences = new Ma
   const title = markdown.match(/^#\s+(.+)$/m)?.[1]
     ?.replace(/[*_`]/g, '')
     .trim() || fallback;
-  const date = markdown.match(/^date:\s*(\d{4}-\d{2}-\d{2})/mi)?.[1] || null;
+  const date = markdown.match(/^date:\s*(\d{4}-\d{2}(?:-\d{2})?)(?=\s|$)/mi)?.[1] || null;
   return {
     id: normalized,
     path: `/${normalized}`,

@@ -7,7 +7,7 @@ date: 2020-03-20 08:30:34
 
 ## 思维导图
 
-![思维导图](https://s1.ax1x.com/2023/08/05/pPkLmZR.jpg)
+![《如何阅读一本书》思维导图 1](https://s1.ax1x.com/2023/08/05/pPkLmZR.jpg)
 
 ---
 

@@ -21,6 +21,8 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
+      - run: npx playwright-core install --with-deps chromium
+      - run: npm run test:browser
       - name: Ensure generated files are committed
         run: git diff --exit-code
 

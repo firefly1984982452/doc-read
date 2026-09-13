@@ -126,6 +126,7 @@ a { color: var(--accent); }
   transform: translateY(-50%);
   z-index: 29;
 }
+.reading-tools[hidden] { display: none; }
 .reading-tools::before {
   background: linear-gradient(180deg, transparent, var(--line) 16%, var(--line) 84%, transparent);
   content: "";
@@ -1165,4 +1166,20 @@ div.comments-box {
   .article-tool.is-success .article-tool-icon,
   .article-tool[data-copy-state='loading'] .article-tool-icon,
   .article-tool[data-copy-state='success'] .article-tool-icon { animation: none; }
+}
+
+/* Loading recovery controls remain usable on touch screens and in both themes. */
+[data-reading-retry], [data-search-retry] {
+  min-height: 44px;
+  padding: .45rem .9rem;
+  border: 1px solid var(--accent);
+  border-radius: .5rem;
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  cursor: pointer;
+}
+[data-reading-retry]:focus-visible, [data-search-retry]:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 3px;
 }
