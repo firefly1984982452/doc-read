@@ -143,7 +143,50 @@ test('article copy includes folded content and reports clipboard denial', async 
   await page.locator('#wechat-copy').click();
   await page.waitForFunction(() => window.testCopied.length > 0);
   const copied = await page.evaluate(() => window.testCopied[0]);
-  assert.match(copied.text, /9787544291170/);
+  const originalTitle = await page.locator('.markdown-section h1').innerText();
+  assert.ok(originalTitle.length > 0, 'source title remains on the page');
+  assert.ok(!copied.text.includes(originalTitle), 'plain text excludes the main title');
+  assert.doesNotMatch(copied.html, /<h1\b/i);
+  assert.doesNotMatch(copied.text, /9787544291170/);
+  assert.match(copied.text, /一、书籍简介/);
+  assert.doesNotMatch(copied.text, /1\. 书籍简介|2\. 书籍信息|3\. 阅读记录/);
+  assert.match(await page.locator('.markdown-section').textContent(), /9787544291170/);
+  const exported = await page.evaluate(html => {
+    const article = new DOMParser().parseFromString(html, 'text/html');
+    const style = target => {
+      const element = typeof target === 'string' ? article.querySelector(target) : target;
+      return { fontSize: element.style.fontSize, lineHeight: element.style.lineHeight, color: element.style.color };
+    };
+    const paragraphs = Array.from(article.querySelectorAll('p'));
+    return { paragraph: style(paragraphs.find(p => !/^date:/.test(p.textContent.trim()) && !p.querySelector('img') && p.textContent.trim())), list: article.querySelector('li') ? style('li') : null, date: paragraphs.some(p => /^date:/.test(p.textContent.trim())), h2: style('h2'), h3: style('h3'), caption: style(Array.from(article.querySelectorAll('span')).find(e => e.style.fontSize === '12px' && e.style.textAlign === 'center')) };
+  }, copied.html);
+  assert.deepEqual(exported.paragraph, { fontSize: '16px', lineHeight: '1.75', color: 'rgb(63, 63, 63)' });
+  assert.equal(exported.list, null, 'metadata lists are excluded from this article export');
+  assert.equal(exported.date, false);
+  assert.doesNotMatch(copied.text, /date\s*:/i);
+  assert.equal(await page.evaluate(html => new DOMParser().parseFromString(html, 'text/html').querySelector('article').firstElementChild.tagName, copied.html), 'H2', 'export begins with content, without date or leading divider');
+  assert.equal(exported.caption.fontSize, '12px');
+  assert.equal(exported.caption.color, 'rgb(178, 178, 178)');
+  assert.equal(exported.h2.fontSize, '18px');
+  assert.equal(exported.h3.fontSize, '16px');
+  const textRuns = await page.evaluate(html => {
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    const paragraphs = Array.from(doc.querySelectorAll('p')).filter(p => !/^date:/.test(p.textContent.trim()) && !p.querySelector('img'));
+    // Model an editor that drops font size on paragraph containers when pasting.
+    paragraphs.forEach(p => p.style.removeProperty('font-size'));
+    return paragraphs.flatMap(p => Array.from(p.querySelectorAll('span')).filter(span => span.childNodes.length === 1 && span.firstChild.nodeType === 3).map(span => span.style.fontSize));
+  }, copied.html);
+  assert.ok(textRuns.length > 20, 'verify actual article text runs');
+  assert.ok(textRuns.every(size => size === '16px'), 'body text carries 16px even without paragraph styles');
+
+  const headings = await page.evaluate(html => Array.from(new DOMParser().parseFromString(html, 'text/html').querySelectorAll('h3')).map(h => ({ text: h.textContent, decoration: h.style.textDecoration, border: h.style.borderBottomWidth, display: h.style.display })), copied.html);
+  assert.ok(headings.some(h => h.text.length > 40), 'exercise long chapter headings');
+  for (const heading of headings) {
+    assert.equal(heading.decoration, 'none');
+    assert.equal(heading.border, '3px');
+    assert.equal(heading.display, 'block');
+  }
+
   assert.doesNotMatch(copied.html, /<button|data-fold-key|localhost|127\.0\.0\.1/);
   await page.evaluate(() => { window.testDenyClipboard = true; });
   await page.locator('#wechat-copy').click();

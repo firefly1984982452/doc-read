@@ -4,6 +4,7 @@
   --surface: rgba(255, 255, 255, 0.92);
   --ink: #54525a;
   --text: #5e5a62;
+  --reading-text: #3f3f3f;
   --text-muted: #8e8995;
   --accent: #8b22e8;
   --accent-strong: #7216ca;
@@ -26,6 +27,7 @@ html[data-theme='dark'] {
   --surface: rgba(29, 25, 36, 0.94);
   --ink: #f0eaf5;
   --text: #d3cbd9;
+  --reading-text: #d3cbd9;
   --text-muted: #9d93a5;
   --accent: #c17aff;
   --accent-strong: #d29aff;
@@ -369,7 +371,19 @@ html[data-theme='dark'] .random-reading { --tool-icon: #c996ff; }
 @keyframes typo-backdrop-in { from { opacity: 0; } }
 @keyframes typo-scan { 0%, 70%, 100% { opacity: .25; transform: translateY(0); } 35% { opacity: 1; transform: translateY(-5px); } }
 
-.app-nav { font-family: system-ui, sans-serif; margin: 1.1rem 4.5rem 0 0; }
+.app-nav {
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+  font-family: system-ui, sans-serif;
+  margin: 0;
+  padding: .7rem 4.5rem .7rem 3.8rem;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  width: 100%;
+  z-index: 30;
+}
 .app-nav a { color: var(--text); font-size: .88rem; letter-spacing: .04em; }
 .app-nav li ul { background: var(--surface); border-color: var(--line); }
 .app-nav .archive-nav-item > a { align-items: center; display: inline-flex; gap: .42rem; }
@@ -554,14 +568,17 @@ body:not(.close) .content { left: var(--sidebar-width); }
 }
 .reading-note-page .article-title-row {
   align-items: center;
-  border-bottom: 1px solid var(--line);
   display: grid;
   gap: .7rem;
   grid-template-columns: minmax(0, 1fr) auto;
-  margin: .8rem 0 1.1rem;
+  margin: .8rem 0 0;
+  /* Override Docsify’s first-child margin reset. */
+  margin-top: .8rem !important;
   padding-bottom: 1rem;
 }
 .reading-note-page .markdown-section > p.reading-date {
+  font-size: 12px;
+  color: #b2b2b2;
   margin: .2rem 0 .45rem !important;
 }
 .reading-note-page .markdown-section > p.reading-date + hr {
@@ -569,7 +586,7 @@ body:not(.close) .content { left: var(--sidebar-width); }
 }
 .reading-note-page .article-title-row .article-title {
   border: 0;
-  font-size: clamp(1.6rem, 2.7vw, 2.2rem);
+  font-size: 20px;
   line-height: 1.25;
   margin: 0;
   min-width: 0;
@@ -607,7 +624,7 @@ body:not(.close) .content { left: var(--sidebar-width); }
   border: 0;
   color: var(--accent) !important;
   font-size: 1.58rem;
-  margin: 1rem 0 .2rem;
+  margin: 0 0 .2rem;
   padding: .2rem 0 .2rem 1.25rem;
   position: relative;
 }
@@ -687,7 +704,7 @@ body:not(.close) .content { left: var(--sidebar-width); }
   width: fit-content;
 }
 .reading-note-page .markdown-section h3 {
-  margin: 1.9rem auto 1.1rem;
+  margin: 10px auto;
 }
 .markdown-section h3::after {
   background: var(--accent-soft);
@@ -701,11 +718,26 @@ body:not(.close) .content { left: var(--sidebar-width); }
 .markdown-section h4 { color: var(--accent-strong); font-size: 1.05rem; margin-top: 2rem; }
 .markdown-section p, .markdown-section li { overflow-wrap: break-word; }
 .reading-note-page .markdown-section > p.reading-body-paragraph { text-indent: 2em; }
+/* Article typography; navigation retains its own scale. */
+:is(.reading-note-page, .ruohua-note-page) .markdown-section h2 { font-size: 18px; }
+:is(.reading-note-page, .ruohua-note-page) .markdown-section h3 { font-size: 16px; }
+:is(.reading-note-page, .ruohua-note-page) .markdown-section {
+  font-size: 16px;
+  line-height: 1.75;
+  color: var(--reading-text);
+}
+:is(.reading-note-page, .ruohua-note-page) .markdown-section :is(p, ul, ol, li, blockquote, td, th) {
+  font-family: inherit;
+  font-size: 16px;
+  line-height: 1.75;
+  color: var(--reading-text);
+}
+
 .markdown-section :where(p, li, blockquote, td, th) strong {
   color: var(--accent);
   font-weight: 700;
 }
-.markdown-section hr { border: 0; border-top: 1px solid var(--line); margin: 2rem 0; }
+.markdown-section hr { border: 0; border-top: 1px solid var(--line); margin: 1rem 0; }
 .markdown-section a { color: var(--accent); font-weight: inherit; text-decoration-color: color-mix(in srgb, var(--accent), transparent 55%); text-underline-offset: .2em; }
 .markdown-section a:hover { text-decoration-color: var(--accent); }
 .markdown-section blockquote {
@@ -714,8 +746,8 @@ body:not(.close) .content { left: var(--sidebar-width); }
   border-left: 3px solid var(--accent);
   border-radius: 0 8px 8px 0;
   color: var(--text);
-  margin: 1.6rem 0;
-  padding: 1rem 1.25rem;
+  margin: .6rem 0;
+  padding: .5rem 1rem;
 }
 .markdown-section blockquote p { margin: .35rem 0; }
 .markdown-section code { background: var(--code); border-radius: 4px; color: var(--accent); padding: .15em .35em; }
@@ -733,8 +765,23 @@ body:not(.close) .content { left: var(--sidebar-width); }
   box-sizing: border-box;
   display: block;
   height: auto;
-  margin: .8rem auto;
+  margin: 0;
   max-width: 100%;
+}
+.markdown-section .reading-image-with-caption {
+  display: block;
+  text-indent: 0;
+}
+.markdown-section .reading-image-caption {
+  display: block;
+  margin: 0;
+  color: #b2b2b2;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.75;
+  text-align: center;
+  text-indent: 0;
+  overflow-wrap: anywhere;
 }
 .markdown-section p.reading-image-paragraph > a {
   display: block;
@@ -1004,7 +1051,7 @@ div.comments-box {
 
 @media (max-width: 960px) {
   :root { --base-font-size: 16px; }
-  .app-nav { background: var(--surface); border-bottom: 1px solid var(--line); margin: 0; padding: .7rem 3.3rem .7rem 3.8rem; position: fixed; width: 100%; }
+  .app-nav { padding-right: 3.3rem; }
   .app-nav li { margin: 0 .7rem 0 0; }
   .sidebar {
     box-shadow: 12px 0 36px rgba(53, 42, 32, .16);
@@ -1039,21 +1086,21 @@ div.comments-box {
   .markdown-section h1 { font-size: 2.05rem; margin-bottom: 2.5rem; padding-bottom: 1.35rem; }
   .reading-note-page .article-title-row {
     gap: .5rem;
-    margin: .35rem 0 .75rem;
+    margin: .8rem 0 0;
     padding-bottom: .8rem;
   }
   .reading-note-page .article-title-row .article-title {
-    font-size: 1.42rem;
+    font-size: 20px;
     margin: 0;
     padding: 0;
   }
   .title-copy-button { font-size: .64rem; padding: .38rem .5rem; }
-  .markdown-section h2 { font-size: 1.38rem; margin-top: 1.1rem; padding-left: 1rem; }
+  .markdown-section h2 { font-size: 1.38rem; margin-top: 0; padding-left: 1rem; }
   .markdown-section h2.has-section-fold { padding-left: 2.85rem; }
   .markdown-section h2::before { width: 6px; }
   .section-fold-toggle { height: 1.6rem; left: .72rem; width: 1.6rem; }
   .markdown-section h3 { font-size: 1.2rem; margin-top: 2.6rem; }
-  .reading-note-page .markdown-section h3 { margin: 1.5rem auto .9rem; }
+  .reading-note-page .markdown-section h3 { margin: 10px auto; }
   .markdown-section table { display: block; overflow-x: auto; white-space: nowrap; }
   .cover-main { margin: 0 1.35rem !important; }
   .cover { background-position: 61% center !important; }

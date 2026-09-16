@@ -109,6 +109,13 @@
       image.removeAttribute('data-origin');
     });
 
+    article.querySelectorAll('.reading-image-with-caption').forEach(function (wrapper) {
+      applyStyles(wrapper, { display: 'block', textIndent: '0' });
+    });
+    article.querySelectorAll('.reading-image-caption').forEach(function (caption) {
+      applyStyles(caption, { display: 'block', color: '#b2b2b2', fontSize: '12px', fontWeight: '400', lineHeight: '1.75', textAlign: 'center', textIndent: '0', margin: '0' });
+    });
+
     article.querySelectorAll('*').forEach(function (element) {
       sanitizeAttributes(element, options.stripInlineStyles);
     });
@@ -125,7 +132,7 @@
         borderRadius: '6px',
         display: 'block',
         height: 'auto',
-        margin: '22px auto',
+        margin: '0',
         maxWidth: '100%'
       });
     });
@@ -133,24 +140,24 @@
     applyStyles(article, {
       background: '#ffffff',
       boxSizing: 'border-box',
-      color: '#5f5868',
+      color: '#3f3f3f',
       fontFamily: '-apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif',
       fontSize: '16px',
-      lineHeight: '1.9',
+      lineHeight: '1.75',
       margin: '0 auto',
       maxWidth: '677px',
-      padding: '10px 12px',
+      padding: '0 12px 10px',
       wordBreak: 'break-word'
     });
 
     article.querySelectorAll('h1').forEach(function (heading) {
       applyStyles(heading, {
-        borderBottom: '3px solid #ead8ff',
+        borderBottom: '0',
         color: '#342842',
-        fontSize: '30px',
+        fontSize: '20px',
         fontWeight: '700',
         lineHeight: '1.35',
-        margin: '12px 0 34px',
+        margin: '12.8px 0 0',
         padding: '0 0 18px',
         textAlign: 'left'
       });
@@ -159,10 +166,10 @@
       applyStyles(heading, {
         borderLeft: '6px solid #e3c9ff',
         color: '#8426ec',
-        fontSize: '24px',
+        fontSize: '18px',
         fontWeight: '700',
         lineHeight: '1.45',
-        margin: '42px 0 22px',
+        margin: '0 0 22px',
         padding: '4px 0 4px 14px',
         textAlign: 'left'
       });
@@ -170,16 +177,19 @@
     article.querySelectorAll('h3').forEach(function (heading) {
       applyStyles(heading, {
         color: '#3e3250',
-        fontSize: '20px',
+        fontSize: '16px',
         fontWeight: '700',
         lineHeight: '1.5',
-        margin: '34px 0 18px',
+        margin: '10px auto',
         padding: '0 0 7px',
         textAlign: 'center',
-        textDecoration: 'underline',
-        textDecorationColor: '#dfc4ff',
-        textDecorationThickness: '3px',
-        textUnderlineOffset: '8px'
+        display: 'block',
+        width: 'fit-content',
+        maxWidth: '100%',
+        boxSizing: 'border-box',
+        overflowWrap: 'anywhere',
+        textDecoration: 'none',
+        borderBottom: '3px solid #dfc4ff'
       });
     });
     article.querySelectorAll('h4, h5, h6').forEach(function (heading) {
@@ -195,10 +205,10 @@
       var isMetadata = /^\s*date\s*:/i.test(paragraph.textContent);
       var containsMedia = Boolean(paragraph.querySelector('img, svg, video, iframe'));
       applyStyles(paragraph, {
-        color: isMetadata ? '#8f8798' : '#5f5868',
-        fontSize: isMetadata ? '14px' : '16px',
-        lineHeight: '1.9',
-        margin: isMetadata ? '0 0 28px' : '1.05em 0',
+        color: isMetadata ? '#b2b2b2' : '#3f3f3f',
+        fontSize: isMetadata ? '12px' : '16px',
+        lineHeight: '1.75',
+        margin: isMetadata ? '0 0 7.2px' : '.6em 0',
         textAlign: containsMedia ? 'center' : 'justify',
         textIndent: isMetadata || containsMedia ? '0' : '2em'
       });
@@ -210,18 +220,20 @@
       applyStyles(link, { color: '#8426ec', textDecoration: 'underline', textUnderlineOffset: '3px' });
     });
     article.querySelectorAll('ul, ol').forEach(function (list) {
-      applyStyles(list, { margin: '18px 0', paddingLeft: '1.6em' });
+      applyStyles(list, { fontSize: '16px', lineHeight: '1.75', color: '#3f3f3f', margin: '15px 0', paddingLeft: '1.6em' });
     });
     article.querySelectorAll('li').forEach(function (item) {
-      applyStyles(item, { color: '#5f5868', lineHeight: '1.85', margin: '6px 0' });
+      applyStyles(item, { color: '#3f3f3f', fontSize: '16px', lineHeight: '1.75', margin: '0' });
     });
     article.querySelectorAll('blockquote').forEach(function (quote) {
       applyStyles(quote, {
         background: '#faf6ff',
         borderLeft: '4px solid #b96cff',
-        color: '#655a70',
-        margin: '26px 0',
-        padding: '14px 18px'
+        color: '#3f3f3f',
+        fontSize: '16px',
+        lineHeight: '1.75',
+        margin: '9.6px 0',
+        padding: '8px 16px'
       });
       quote.querySelectorAll('p').forEach(function (paragraph) { paragraph.style.textIndent = '0'; });
     });
@@ -232,7 +244,7 @@
       applyStyles(cell, { background: '#8426ec', border: '1px solid #d8b9fa', color: '#ffffff', fontWeight: '700', padding: '9px 7px', textAlign: 'center' });
     });
     article.querySelectorAll('td').forEach(function (cell) {
-      applyStyles(cell, { border: '1px solid #e4d3f4', color: '#5f5868', padding: '8px 7px', textAlign: 'left', verticalAlign: 'top' });
+      applyStyles(cell, { border: '1px solid #e4d3f4', color: '#3f3f3f', padding: '8px 7px', textAlign: 'left', verticalAlign: 'top' });
     });
     article.querySelectorAll('code').forEach(function (code) {
       applyStyles(code, { background: '#f6effd', borderRadius: '3px', color: '#6f25bd', fontFamily: 'Menlo, Consolas, monospace', padding: '2px 5px' });
@@ -242,8 +254,9 @@
       pre.querySelectorAll('code').forEach(function (code) { code.style.background = 'transparent'; code.style.color = 'inherit'; });
     });
     article.querySelectorAll('hr').forEach(function (rule) {
-      applyStyles(rule, { border: '0', borderTop: '1px solid #e8d7f8', margin: '34px 0' });
+      applyStyles(rule, { border: '0', borderTop: '1px solid #e8d7f8', margin: '16px 0' });
     });
+
 
     return article;
   }
@@ -282,8 +295,68 @@
       .trim();
   }
 
+  // Editors may discard paragraph font-size during paste. Make text runs explicit.
+  function inlineTextSizes(element, inheritedSize) {
+    var isBlock = /^(?:ARTICLE|SECTION|DIV|P|LI|H[1-6]|TH|TD|PRE)$/.test(element.tagName);
+    var isCaption = element.tagName === 'SPAN' && element.style.fontSize === '12px' && element.style.textAlign === 'center';
+    var size = (isBlock || isCaption) && element.style.fontSize ? element.style.fontSize : inheritedSize;
+    element.style.fontSize = size;
+    Array.from(element.childNodes).forEach(function (node) {
+      if (node.nodeType === 3 && node.nodeValue.trim()) {
+        var run = document.createElement('span');
+        run.style.fontSize = size;
+        node.parentNode.insertBefore(run, node);
+        run.appendChild(node);
+      } else if (node.nodeType === 1 && !/^(?:IMG|SVG|VIDEO|IFRAME|BR|HR)$/.test(node.tagName)) {
+        inlineTextSizes(node, size);
+      }
+    });
+  }
+
+  // Keep bibliographic details in the source; simplify only the WeChat export.
+  function simplifyWechatBookInfo(article) {
+    function headingName(heading) {
+      return heading.textContent.trim().replace(/^[一二三四五六七八九十百零〇0-9]+[\s、.．:：)）-]*\s*/, '');
+    }
+    Array.from(article.querySelectorAll('h2')).forEach(function (heading) {
+      if (headingName(heading) !== '书籍信息') return;
+      var prefix = heading.textContent.trim().slice(0, -'书籍信息'.length);
+      var node = heading.nextElementSibling;
+      var hasIntroduction = false;
+      while (node && !/^H[12]$/.test(node.tagName)) {
+        var next = node.nextElementSibling;
+        if (node.tagName === 'H3') {
+          var name = headingName(node);
+          if (name === '书籍简介') {
+            hasIntroduction = true;
+            node.remove();
+          } else if (name === '书籍信息' || name === '阅读记录') {
+            node.remove();
+            while (next && !/^H[123]$/.test(next.tagName)) {
+              var following = next.nextElementSibling;
+              next.remove();
+              next = following;
+            }
+          }
+        }
+        node = next;
+      }
+      if (hasIntroduction) heading.textContent = prefix + '书籍简介';
+    });
+  }
+
   function buildWechatPayload(source) {
     var article = styleArticle(source);
+    var title = article.querySelector('h1');
+    if (title) title.remove();
+    var first = article.firstElementChild;
+    if (first && first.tagName === 'P' && /^date\s*:/i.test(first.textContent.trim())) {
+      var separator = first.nextElementSibling;
+      first.remove();
+      if (separator && separator.tagName === 'HR') separator.remove();
+    }
+    simplifyWechatBookInfo(article);
+    inlineTextSizes(article, '16px');
     return {
       html: '<section style="background:#ffffff;margin:0;padding:0;">' + article.outerHTML + '</section>',
       text: articlePlainText(article)
