@@ -142,21 +142,17 @@
         '<div><div class="reading-metric-value"><span data-metric="active">0</span><em>月</em></div><small>有阅读记录的月份</small></div>',
       '</div>',
       '<div class="reading-chart-block">',
-        '<div class="reading-chart-title"><strong>年度阅读节奏</strong><span>点击柱形选择年份</span></div>',
-        '<div class="reading-bars" role="img" aria-label="' + first.year + ' 至 ' + latest.year + ' 年每年阅读书目数量"></div>',
+        '<div class="reading-chart-title"><strong>年度阅读节奏</strong><span>单位：万字 · 点击柱形选择年份</span></div>',
+        '<div class="reading-bars" role="group" aria-label="' + first.year + ' 至 ' + latest.year + ' 年每年阅读字数，单位：万字"></div>',
       '</div>',
       '<details class="reading-dashboard-details">',
-        '<summary><span>查看详细数据</span><small>月份、字数与阅读偏好</small></summary>',
+        '<summary><span>查看详细数据</span><small>月份与阅读偏好</small></summary>',
         '<div class="reading-dashboard-detail-content">',
           '<div class="reading-chart-grid">',
             '<div class="reading-chart-block">',
               '<div class="reading-chart-title"><strong>月份习惯</strong><span data-habit-caption>全部年份累计</span></div>',
               '<div class="reading-heatmap" role="img" aria-label="每月阅读记录热力图"></div>',
               '<div class="reading-months" aria-hidden="true"><span>1月</span><span>2月</span><span>3月</span><span>4月</span><span>5月</span><span>6月</span><span>7月</span><span>8月</span><span>9月</span><span>10月</span><span>11月</span><span>12月</span></div>',
-            '</div>',
-            '<div class="reading-chart-block reading-words-block">',
-              '<div class="reading-chart-title"><strong>阅读字数趋势</strong><span>仅展示有明确记录的年份</span></div>',
-              '<svg class="reading-word-chart" viewBox="0 0 460 210" role="img" aria-label="年度阅读字数趋势图"></svg>',
             '</div>',
           '</div>',
           '<div class="reading-chart-block reading-preference-block">',
@@ -197,14 +193,20 @@
   }
 
   function renderBars(root, data) {
-    var max = Math.max.apply(null, data.years.map(function (item) { return item.entries; }));
+    var values = data.years.map(function (item) {
+      return Number.isFinite(item.wordWan) && item.wordWan >= 0 ? item.wordWan : null;
+    });
+    var max = Math.max.apply(null, values.filter(Number.isFinite).concat([1]));
     root.querySelector('.reading-bars').style.setProperty('--reading-year-count', data.years.length);
-    root.querySelector('.reading-bars').innerHTML = data.years.map(function (item) {
+    root.querySelector('.reading-bars').innerHTML = data.years.map(function (item, index) {
       var active = String(state.year) === String(item.year);
-      var height = Math.max(12, Math.round(item.entries / max * 100));
-      return '<button type="button" data-reading-year="' + item.year + '" aria-pressed="' + active + '" aria-label="' + item.year + ' 年，' + item.entries + ' 本阅读记录">' +
+      var value = values[index];
+      var label = value === null ? '—' : formatNumber(value);
+      var height = value === null ? 0 : Math.round(value / max * 100);
+      var description = value === null ? '暂无阅读字数记录' : '阅读 ' + label + ' 万字';
+      return '<button type="button" data-reading-year="' + item.year + '" aria-pressed="' + active + '" aria-label="' + item.year + ' 年，' + description + '">' +
         '<span class="reading-bar-track"><span class="reading-bar-column" style="height:' + height + '%">' +
-          '<span class="reading-bar-value">' + item.entries + '</span>' +
+          '<span class="reading-bar-value">' + label + '</span>' +
           '<i aria-hidden="true"></i>' +
         '</span></span>' +
         '<small>' + item.year + '</small>' +
@@ -218,30 +220,6 @@
       var strength = value ? (0.16 + value / max * 0.84).toFixed(2) : 0.05;
       return '<div style="--heat:' + strength + '" title="' + (index + 1) + ' 月：' + value + ' 次记录"><span>' + value + '</span></div>';
     }).join('');
-  }
-
-  function renderWordChart(root, data) {
-    var rows = data.years.filter(function (item) { return typeof item.wordWan === 'number'; });
-    var svg = root.querySelector('.reading-word-chart');
-    if (!rows.length) { svg.innerHTML = ''; return; }
-    var width = 460, height = 210, left = 42, right = 18, top = 24, bottom = 38;
-    var max = Math.max.apply(null, rows.map(function (item) { return item.wordWan; }));
-    var x = function (index) { return left + index * ((width - left - right) / Math.max(rows.length - 1, 1)); };
-    var y = function (value) { return top + (max - value) / max * (height - top - bottom); };
-    var points = rows.map(function (item, index) { return x(index) + ',' + y(item.wordWan); }).join(' ');
-    var grid = [0, .5, 1].map(function (ratio) {
-      var yy = top + ratio * (height - top - bottom);
-      return '<line x1="' + left + '" x2="' + (width - right) + '" y1="' + yy + '" y2="' + yy + '" class="word-grid" />';
-    }).join('');
-    var marks = rows.map(function (item, index) {
-      var xx = x(index), yy = y(item.wordWan), active = String(state.year) === String(item.year);
-      return '<g class="word-point' + (active ? ' is-active' : '') + '">' +
-        '<circle cx="' + xx + '" cy="' + yy + '" r="6" />' +
-        '<text x="' + xx + '" y="' + (yy - 13) + '" text-anchor="middle">' + item.wordWan + '</text>' +
-        '<text x="' + xx + '" y="' + (height - 13) + '" text-anchor="middle">' + item.year + '</text>' +
-      '</g>';
-    }).join('');
-    svg.innerHTML = grid + '<polyline class="word-line" points="' + points + '" />' + marks;
   }
 
   function renderPreferences(root, rows) {
@@ -338,7 +316,6 @@
       : state.year + ' 年共留下 ' + entries + ' 本阅读记录，活跃于 ' + activeMonths + ' 个月，阅读最集中在 ' + peak + ' 月。';
     renderBars(root, data);
     renderHeatmap(root, months);
-    renderWordChart(root, data);
     root.querySelector('[data-preference-caption]').textContent = state.year === 'all' ? '全部年份累计' : state.year + ' 年';
     renderPreferences(root, rows);
   }

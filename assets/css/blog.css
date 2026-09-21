@@ -963,17 +963,11 @@ body:not(.close) .content { left: var(--sidebar-width); }
 .reading-dashboard-details > summary small { color: var(--text-muted); font-size: .68rem; font-weight: 400; }
 .reading-dashboard-detail-content { animation: dashboard-reveal .28s ease both; }
 @keyframes dashboard-reveal { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
-.reading-chart-grid { display: grid; gap: 2.4rem; grid-template-columns: 1fr 1.35fr; margin-top: 2.5rem; }
+.reading-chart-grid { margin-top: 2.5rem; }
 .reading-heatmap { display: grid; gap: .35rem; grid-template-columns: repeat(6, 1fr); }
 .reading-heatmap div { align-items: center; aspect-ratio: 1; background: color-mix(in srgb, var(--accent) calc(var(--heat) * 100%), var(--accent-pale)); display: flex; justify-content: center; min-width: 0; }
 .reading-heatmap span { color: color-mix(in srgb, var(--ink), transparent 12%); font-size: .7rem; }
 .reading-months { display: none; }
-.reading-word-chart { display: block; height: auto; overflow: visible; width: 100%; }
-.reading-word-chart .word-grid { stroke: var(--line); stroke-width: 1; }
-.reading-word-chart .word-line { fill: none; stroke: var(--accent); stroke-width: 3; }
-.reading-word-chart circle { fill: var(--surface); stroke: var(--accent); stroke-width: 3; }
-.reading-word-chart .is-active circle { fill: var(--accent); }
-.reading-word-chart text { fill: var(--text-muted); font-size: 11px; }
 .reading-preference-block { border-top: 1px solid var(--line); margin-top: 2.5rem; padding-top: 1.45rem; }
 .reading-preferences { align-items: center; display: grid; gap: 2.5rem; grid-template-columns: minmax(190px, .82fr) 1fr; }
 .reading-preference-pie { display: block; filter: drop-shadow(0 12px 24px color-mix(in srgb, var(--accent), transparent 82%)); margin: 0 auto; max-width: 250px; overflow: visible; width: 100%; }
@@ -1169,7 +1163,6 @@ div.comments-box {
   .reading-metrics > div:nth-child(n + 3) { border-top: 1px solid var(--line); }
   .reading-bars { gap: .2rem; height: 160px; }
   .reading-bar-column { width: 72%; }
-  .reading-chart-grid { grid-template-columns: 1fr; }
   .reading-preferences { gap: 1.2rem; grid-template-columns: minmax(145px, .75fr) 1fr; }
   .reading-preference-pie { max-width: 190px; }
   .reading-preference-legend { gap: .2rem; }

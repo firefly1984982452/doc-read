@@ -53,14 +53,31 @@ test('hover, focus and year selection do not control annual count visibility', a
   }
 });
 
-test('annual count labels continue to use each year record dynamically', async () => {
-  const years = [{ year: 2010, entries: 4 }, { year: 2011, entries: 17 }, { year: 2012, entries: 8 }];
+test('annual bars use word totals for both labels and heights rather than book counts', async () => {
+  const years = [{ year: 2010, entries: 4, wordWan: 300 }, { year: 2011, entries: 17, wordWan: 100.5 }, { year: 2012, entries: 8, wordWan: 200 }];
   const { html, properties } = await renderBars(years, 2011);
-  const columns = Array.from(html.matchAll(/<span class="reading-bar-column" style="height:(\d+)%"><span class="reading-bar-value">(\d+)<\/span><i aria-hidden="true"><\/i><\/span>/g));
+  const columns = Array.from(html.matchAll(/<span class="reading-bar-column" style="height:(\d+)%"><span class="reading-bar-value">([\d.]+)<\/span><i aria-hidden="true"><\/i><\/span>/g));
   assert.equal(columns.length, years.length, 'each label must belong to its dynamically sized column, not the common chart header');
-  assert.deepEqual(columns.map(match => Number(match[1])), [24, 100, 47]);
-  assert.deepEqual(columns.map(match => Number(match[2])), years.map(item => item.entries));
+  assert.deepEqual(columns.map(match => Number(match[1])), [100, 34, 67]);
+  assert.deepEqual(columns.map(match => Number(match[2])), years.map(item => item.wordWan));
   assert.equal(properties.get('--reading-year-count'), years.length);
+});
+
+test('zero and unavailable word totals remain distinct without invalid bar heights', async () => {
+  const years = [
+    { year: 2010, entries: 4, wordWan: 0 },
+    { year: 2011, entries: 17, wordWan: null },
+    { year: 2012, entries: 8 },
+    { year: 2013, entries: 9, wordWan: NaN },
+    { year: 2014, entries: 10, wordWan: -1 },
+    { year: 2015, entries: 11, wordWan: Infinity }
+  ];
+  const { html } = await renderBars(years, 2010);
+  assert.equal((html.match(/style="height:0%"/g) || []).length, years.length);
+  assert.deepEqual(Array.from(html.matchAll(/class="reading-bar-value">([^<]+)<\/span>/g), match => match[1]), ['0', '—', '—', '—', '—', '—']);
+  assert.match(html, /aria-label="2010 年，阅读 0 万字"/);
+  assert.match(html, /aria-label="2011 年，暂无阅读字数记录"/);
+  assert.doesNotMatch(html, /NaN|Infinity/);
 });
 
 test('annual count labels are centered immediately above their own columns', async () => {
@@ -94,9 +111,9 @@ test('column highlights move the label with its bar without fading the label', a
 });
 
 test('annual bars retain year selection and accessible dynamic descriptions', async () => {
-  const { html } = await renderBars([{ year: 2010, entries: 4 }, { year: 2011, entries: 17 }], 2011);
-  assert.match(html, /<button type="button" data-reading-year="2010" aria-pressed="false" aria-label="2010 年，4 本阅读记录">/);
-  assert.match(html, /<button type="button" data-reading-year="2011" aria-pressed="true" aria-label="2011 年，17 本阅读记录">/);
+  const { html } = await renderBars([{ year: 2010, entries: 4, wordWan: 300 }, { year: 2011, entries: 17, wordWan: 100.5 }], 2011);
+  assert.match(html, /<button type="button" data-reading-year="2010" aria-pressed="false" aria-label="2010 年，阅读 300 万字">/);
+  assert.match(html, /<button type="button" data-reading-year="2011" aria-pressed="true" aria-label="2011 年，阅读 100.5 万字">/);
   assert.match(html, /<small>2010<\/small>/);
   assert.match(html, /<small>2011<\/small>/);
 });
