@@ -220,7 +220,23 @@
       applyStyles(link, { color: '#8426ec', textDecoration: 'underline', textUnderlineOffset: '3px' });
     });
     article.querySelectorAll('ul, ol').forEach(function (list) {
-      applyStyles(list, { fontSize: '16px', lineHeight: '1.75', color: '#3f3f3f', margin: '15px 0', paddingLeft: '1.6em' });
+      var isBodyOrderedList = list.tagName === 'OL' && list.parentNode === article;
+      applyStyles(list, {
+        fontSize: '16px', lineHeight: '1.75', color: '#3f3f3f', margin: '15px 0',
+        paddingLeft: isBodyOrderedList ? '0' : '1.6em',
+        listStylePosition: isBodyOrderedList ? 'inside' : 'outside',
+        textIndent: '0'
+      });
+      if (isBodyOrderedList) {
+        Array.from(list.children).forEach(function (item) {
+          if (item.tagName !== 'LI') return;
+          item.style.textIndent = '2em';
+          // Keep loose Markdown list paragraphs on the same line as their number.
+          if (item.firstElementChild && item.firstElementChild.tagName === 'P') {
+            item.firstElementChild.style.display = 'inline';
+          }
+        });
+      }
     });
     article.querySelectorAll('li').forEach(function (item) {
       applyStyles(item, { color: '#3f3f3f', fontSize: '16px', lineHeight: '1.75', margin: '0' });

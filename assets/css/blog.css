@@ -718,6 +718,10 @@ body:not(.close) .content { left: var(--sidebar-width); }
 .markdown-section h4 { color: var(--accent-strong); font-size: 1.05rem; margin-top: 2rem; }
 .markdown-section p, .markdown-section li { overflow-wrap: break-word; }
 .reading-note-page .markdown-section > p.reading-body-paragraph { text-indent: 2em; }
+.reading-note-page .markdown-section > ol { list-style-position: inside; padding-left: 0; }
+.reading-note-page .markdown-section > ol > li { text-indent: 2em; }
+.reading-note-page .markdown-section > ol > li > p:first-child { display: inline; }
+.reading-note-page .markdown-section > ol > li :is(ul, ol) { list-style-position: outside; text-indent: 0; }
 /* Article typography; navigation retains its own scale. */
 :is(.reading-note-page, .ruohua-note-page) .markdown-section h2 { font-size: 18px; }
 :is(.reading-note-page, .ruohua-note-page) .markdown-section h3 { font-size: 16px; }
