@@ -32,13 +32,13 @@
     if (!item) return;
     item.classList.toggle('is-open', expanded);
     if (!expanded) {
-      delete item.dataset.archiveTouchOpen;
+      delete item.dataset.dropdownTouchOpen;
     }
     var trigger = item.querySelector(':scope > a');
     if (trigger) trigger.setAttribute('aria-expanded', String(expanded));
   }
 
-  function enhanceArchiveMenu(link, years, latest) {
+  function enhanceDropdown(link, menuClass, menuLabel) {
     var item = link.closest('li');
     if (!item) return;
     var menu = item.querySelector(':scope > ul');
@@ -46,25 +46,16 @@
       menu = document.createElement('ul');
       item.appendChild(menu);
     }
-    var routeMatch = window.location.hash.match(/^#\/docs\/years\/(\d{4})/);
-    var currentYear = routeMatch && routeMatch[1];
-    var menuSignature = years.join(',') + '|' + (currentYear || '');
     var menuIndex = Array.prototype.indexOf.call(document.querySelectorAll('.app-nav a'), link) + 1;
-    item.classList.add('archive-nav-item');
-    link.classList.toggle('active', Boolean(currentYear));
-    link.setAttribute('href', '#/docs/years/' + latest);
+    item.classList.add('dropdown-nav-item');
     link.setAttribute('aria-haspopup', 'true');
     link.setAttribute('aria-expanded', String(item.classList.contains('is-open')));
-    menu.className = 'archive-year-menu';
-    menu.id = menu.id || 'archive-years-menu-' + menuIndex;
-    menu.setAttribute('aria-label', '选择年度归档');
+    menu.classList.add('dropdown-nav-menu', menuClass);
+    menu.id = menu.id || menuClass + '-' + menuIndex;
+    menu.setAttribute('aria-label', menuLabel);
     link.setAttribute('aria-controls', menu.id);
-    if (menu.dataset.archiveMenuSignature !== menuSignature) {
-      menu.innerHTML = archiveMenu(years, currentYear);
-      menu.dataset.archiveMenuSignature = menuSignature;
-    }
-    if (item.dataset.archiveMenuBound === 'true') return;
-    item.dataset.archiveMenuBound = 'true';
+    if (item.dataset.dropdownMenuBound === 'true') return menu;
+    item.dataset.dropdownMenuBound = 'true';
     item.addEventListener('pointerenter', function () {
       if (window.matchMedia('(hover: hover)').matches) setExpanded(item, true);
     });
@@ -76,18 +67,60 @@
       if (!item.contains(event.relatedTarget)) setExpanded(item, false);
     });
     item.addEventListener('click', function (event) {
-      if (event.target.closest('.archive-year-menu a')) setExpanded(item, false);
+      if (event.target.closest('.dropdown-nav-menu a')) setExpanded(item, false);
     });
     link.addEventListener('click', function (event) {
       if (!window.matchMedia('(hover: none), (max-width: 768px)').matches) return;
       event.preventDefault();
-      var expanded = item.dataset.archiveTouchOpen !== 'true';
-      item.dataset.archiveTouchOpen = expanded ? 'true' : 'false';
+      var expanded = item.dataset.dropdownTouchOpen !== 'true';
+      item.dataset.dropdownTouchOpen = expanded ? 'true' : 'false';
       setExpanded(item, expanded);
     });
+    return menu;
+  }
+
+  function enhanceArchiveMenu(link, years, latest) {
+    var menu = enhanceDropdown(link, 'archive-year-menu', '选择年度归档');
+    if (!menu) return;
+    var routeMatch = window.location.hash.match(/^#\/docs\/years\/(\d{4})/);
+    var currentYear = routeMatch && routeMatch[1];
+    var menuSignature = years.join(',') + '|' + (currentYear || '');
+    link.classList.toggle('active', Boolean(currentYear));
+    link.setAttribute('href', '#/docs/years/' + latest);
+    if (menu.dataset.archiveMenuSignature !== menuSignature) {
+      menu.innerHTML = archiveMenu(years, currentYear);
+      menu.dataset.archiveMenuSignature = menuSignature;
+    }
+  }
+
+  function enhanceRuohuaMenu(link) {
+    var menu = enhanceDropdown(link, 'ruohua-nav-menu', '选择若华内容');
+    if (!menu) return;
+    var route = window.location.hash.split('?')[0].replace(/\.md$/, '');
+    try { route = decodeURIComponent(route); } catch (error) { /* Keep malformed routes inactive. */ }
+    var active = false;
+    menu.querySelectorAll('a').forEach(function (entry) {
+      var target = entry.getAttribute('href').replace(/\.md$/, '');
+      try { target = decodeURIComponent(target); } catch (error) { /* Keep the original target. */ }
+      var current = target === route;
+      entry.classList.toggle('active', current);
+      if (current) entry.setAttribute('aria-current', 'page');
+      else entry.removeAttribute('aria-current');
+      active = active || current;
+    });
+    link.classList.toggle('active', active);
   }
 
   function mount() {
+    document.querySelectorAll('.app-nav').forEach(function (nav) {
+      if (nav.dataset.dropdownObserverBound === 'true') return;
+      nav.dataset.dropdownObserverBound = 'true';
+      // Docsify can replace the navbar after its page-rendered hook has run.
+      new MutationObserver(mount).observe(nav, { childList: true });
+    });
+    document.querySelectorAll('.app-nav a').forEach(function (link) {
+      if (link.textContent.trim() === '若华') enhanceRuohuaMenu(link);
+    });
     loadYears().then(function (years) {
       if (!years.length) return;
       var first = years[0];
@@ -127,13 +160,13 @@
   document.addEventListener('doc-read:rendered', mount);
   document.addEventListener('DOMContentLoaded', mount);
   document.addEventListener('click', function (event) {
-    document.querySelectorAll('.archive-nav-item.is-open').forEach(function (item) {
+    document.querySelectorAll('.dropdown-nav-item.is-open').forEach(function (item) {
       if (!item.contains(event.target)) setExpanded(item, false);
     });
   });
   document.addEventListener('keydown', function (event) {
     if (event.key !== 'Escape') return;
-    document.querySelectorAll('.archive-nav-item.is-open').forEach(function (item) {
+    document.querySelectorAll('.dropdown-nav-item.is-open').forEach(function (item) {
       var trigger = item.querySelector(':scope > a');
       if (trigger && item.contains(document.activeElement)) trigger.focus();
       setExpanded(item, false);

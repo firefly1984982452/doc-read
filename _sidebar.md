@@ -3,6 +3,8 @@
   - [最近阅读](/docs/latest.md)
   - [完整书目索引](/docs/catalog.md)
   - [若华](/docs/other/若华阅读笔记.md)
+    - [日记](/docs/other/若华日记.md)
+    - [阅读笔记](/docs/other/若华阅读笔记.md)
 
 - **[全部书目](/docs/library.md)**
   - [古文典籍](/docs/library.md?id=古文典籍)

@@ -43,7 +43,12 @@ function mount(hash, stored, storageThrows = false) {
 }
 
 test('Ruohua always starts collapsed, including encoded routes and previously expanded sections', () => {
-  for (const hash of ['#/docs/other/若华阅读笔记', '#/docs/other/若华阅读笔记.md', '#/docs/other/' + encodeURIComponent('若华阅读笔记') + '?id=标题']) {
+  const routes = ['若华阅读笔记', '若华日记'].flatMap(name => [
+    '#/docs/other/' + name,
+    '#/docs/other/' + name + '.md',
+    '#/docs/other/' + encodeURIComponent(name) + '?id=标题'
+  ]);
+  for (const hash of routes) {
     for (const stored of [null, '0', '1']) {
       const { body, button } = mount(hash, stored);
       assert.equal(body.hidden, true);
@@ -53,14 +58,16 @@ test('Ruohua always starts collapsed, including encoded routes and previously ex
 });
 
 test('Ruohua remains expandable and collapsible without changing body text', () => {
-  const { body, button } = mount('#/docs/other/若华阅读笔记', null, true);
-  const click = () => button.click({ preventDefault() {}, stopPropagation() {} });
-  click();
-  assert.equal(body.hidden, false);
-  assert.equal(button.getAttribute('aria-expanded'), 'true');
-  click();
-  assert.equal(body.hidden, true);
-  assert.equal(body.textContent, '原有正文');
+  for (const name of ['若华阅读笔记', '若华日记']) {
+    const { body, button } = mount('#/docs/other/' + name, null, true);
+    const click = () => button.click({ preventDefault() {}, stopPropagation() {} });
+    click();
+    assert.equal(body.hidden, false);
+    assert.equal(button.getAttribute('aria-expanded'), 'true');
+    click();
+    assert.equal(body.hidden, true);
+    assert.equal(body.textContent, '原有正文');
+  }
 });
 
 test('other pages keep their existing default and remembered folding state', () => {

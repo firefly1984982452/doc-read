@@ -2,6 +2,8 @@
 - [最近阅读](/docs/latest.md)
 - [全部书目](/docs/library.md)
 - [若华](/docs/other/若华阅读笔记.md)
+  - [日记](/docs/other/若华日记.md)
+  - [阅读笔记](/docs/other/若华阅读笔记.md)
 - [年度归档](#)
   - [正在读取年份…](#)
 - [关于](/docs/think/about.md)
