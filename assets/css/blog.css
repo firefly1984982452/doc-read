@@ -242,7 +242,8 @@ a { color: var(--accent); }
 .xhs-export { --tool-icon: #ff2442; }
 .random-reading { --tool-icon: #8b22e8; }
 .random-reading-icon rect { fill: none; stroke: currentColor; stroke-width: 1.8; }
-.back-to-top-icon svg {
+.back-to-top-icon svg,
+.back-to-bottom-icon svg {
   fill: none;
   stroke: currentColor;
   stroke-linecap: round;
@@ -733,7 +734,7 @@ body:not(.close) .content { left: var(--sidebar-width); }
   color: #b2b2b2;
   margin: .2rem 0 .45rem !important;
 }
-.reading-note-page .markdown-section > p.history-reading-date,
+.markdown-section > p.article-reading-meta,
 .history-reading-stats {
   align-items: baseline;
   display: flex;
@@ -743,9 +744,12 @@ body:not(.close) .content { left: var(--sidebar-width); }
 }
 .history-reading-date > span:first-child,
 .history-reading-stats > span { white-space: nowrap; }
-.reading-note-page .markdown-section > p.history-reading-date {
+:is(.reading-note-page, .ruohua-note-page) .markdown-section > p.article-reading-meta,
+.markdown-section > p.article-reading-meta {
   color: var(--text-muted);
   font-size: 13px;
+  margin: .2rem 0 .45rem !important;
+  text-indent: 0;
 }
 .reading-note-page .markdown-section > p.reading-date + hr {
   margin: .9rem 0 1.15rem;
@@ -1045,7 +1049,14 @@ body:not(.close) .content { left: var(--sidebar-width); }
   max-width: 100%;
   width: fit-content;
 }
-.markdown-section table { display: table; font-size: .92rem; margin: 1.8rem 0; width: 100%; }
+.markdown-section table {
+  display: block;
+  font-size: .92rem;
+  margin: 1.8rem auto;
+  max-width: 100%;
+  overflow-x: auto;
+  width: max-content;
+}
 .markdown-section table tr { background: transparent; border-color: var(--line); }
 .markdown-section table tr:nth-child(2n) { background: var(--quote); }
 .markdown-section th, .markdown-section td { border-color: var(--line); padding: .65rem .75rem; }
@@ -1351,7 +1362,7 @@ div.comments-box {
   .section-fold-toggle { height: 1.6rem; left: .72rem; width: 1.6rem; }
   .markdown-section h3 { font-size: 1.2rem; margin-top: 2.6rem; }
   .reading-note-page .markdown-section h3 { margin: 10px auto; }
-  .markdown-section table { display: block; overflow-x: auto; white-space: nowrap; }
+  .markdown-section table { white-space: nowrap; }
   .cover-main { margin: 0 1.35rem !important; }
   .cover { background-position: 61% center !important; }
   .cover::before {

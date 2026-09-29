@@ -5,10 +5,17 @@
   var toggle = document.getElementById('theme-toggle');
   var progress = document.getElementById('reading-progress');
   var backToTop = document.getElementById('back-to-top');
+  var backToBottom = document.getElementById('back-to-bottom');
 
   if (backToTop) backToTop.addEventListener('click', function () {
     var reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     window.scrollTo({ top: 0, left: 0, behavior: reducedMotion ? 'instant' : 'smooth' });
+  });
+
+  if (backToBottom) backToBottom.addEventListener('click', function () {
+    var reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var page = document.scrollingElement || root;
+    window.scrollTo({ top: page.scrollHeight, left: 0, behavior: reducedMotion ? 'instant' : 'smooth' });
   });
 
   function closeCoverAndShowRoute(route) {

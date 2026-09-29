@@ -22,6 +22,7 @@
     try { decodedRoute = decodeURIComponent(route); } catch (error) { /* Ignore malformed routes. */ }
     var isRuohua = /^#\/docs\/other\/若华(?:阅读笔记|日记)(?:\.md)?$/.test(decodedRoute);
     var isHistoryNote = /^#\/docs\/read-history\/《中国通史》纪录片学习笔记(?:\.md)?$/.test(decodedRoute);
+    var isArticle = isReadingNote || /^#\/docs\/other\/.+/.test(decodedRoute) || /^#\/docs\/think\/think(?:\.md)?$/.test(decodedRoute);
 
     window.DocReadResources.script('assets/js/section-fold.js')
       .catch(function (error) { console.error(error); });
@@ -45,6 +46,8 @@
       window.DocReadResources.script('assets/js/history-outline.js')
         .then(function () { window.DocReadHistoryOutline.mount(); })
         .catch(function (error) { console.error(error); });
+    }
+    if (isArticle) {
       window.DocReadResources.script('assets/js/history-reading-stats.js')
         .then(function () { window.DocReadHistoryStats.mount(); })
         .catch(function (error) { console.error(error); });

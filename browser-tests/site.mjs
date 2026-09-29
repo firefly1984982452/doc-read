@@ -64,11 +64,68 @@ async function enter(page) {
   await page.locator('#doc-read-search-input').waitFor();
 }
 
-test('back-to-top keeps the reading route and works with keyboard, reduced motion and narrow toolbars', async t => {
+test('article reading statistics follow dates, support undated pages and exclude navigation pages', async t => {
+  const page = await pageFor(t);
+  for (const [route, dateText] of [
+    ['docs/read/斯蒂芬·茨威格《断头王后：玛丽·安托瓦内特传》', 'date: 2026-09-30'],
+    ['docs/read-history/《中国通史》纪录片学习笔记', 'date: 2023-11-10'],
+    ['docs/read/芭芭拉·明托《金字塔原理》', 'date:'],
+    ['docs/other/若华日记', null],
+    ['docs/other/若华阅读笔记', null],
+    ['docs/think/think', null]
+  ]) {
+    // Hash navigation exercises the cached module as well as initial page loading.
+    await page.goto(origin + '/#/' + encodeURI(route));
+    await page.waitForFunction(path => window.DOC_READ_PAGE_SOURCE?.path === path + '.md' &&
+      document.querySelectorAll('.article-reading-meta .history-reading-stats > span').length === 2, route);
+    const before = await page.locator('.article-reading-meta').textContent();
+    if (dateText) assert.ok(before.startsWith(dateText), route + ' keeps its original date');
+    else assert.ok(!before.includes('date:'), route + ' does not invent a missing date');
+    assert.match(before, /总字数：[\d,]+ 字预计阅读：\d+ 分钟/);
+    assert.equal(await page.locator('.article-reading-meta').evaluate(element => getComputedStyle(element).fontSize), '13px', route + ' uses the shared metadata size');
+    assert.equal(await page.locator('.article-reading-meta').evaluate(element => getComputedStyle(element).textIndent), '0px');
+
+    await page.evaluate(() => {
+      window.DocReadHistoryStats.mount();
+      window.DocReadHistoryStats.mount();
+    });
+    assert.equal(await page.locator('.article-reading-meta').count(), 1, 'repeated rendering keeps one metadata row');
+    assert.equal(await page.locator('.article-reading-meta').textContent(), before, 'statistics never count themselves');
+    assert.equal(await page.locator('.history-reading-stats').count(), 1);
+
+    if (route.includes('中国通史')) {
+      const collapsedCount = await page.locator('.is-section-collapsed').count();
+      assert.ok(collapsedCount > 0, 'history chapters remain folded by default');
+      await page.locator('.section-fold-toggle').first().click();
+      await page.evaluate(() => window.DocReadHistoryStats.mount());
+      assert.equal(await page.locator('.article-reading-meta').textContent(), before, 'folded and expanded text have identical counts');
+    }
+    if (route.includes('断头王后')) await screenshot(page, 'article-reading-statistics');
+  }
+
+  await page.setViewportSize({ width: 320, height: 844 });
+  await page.goto(origin + '/#/docs/read/' + encodeURIComponent('斯蒂芬·茨威格《断头王后：玛丽·安托瓦内特传》'));
+  await page.locator('.article-reading-meta').waitFor();
+  const rects = await page.locator('.article-reading-meta .history-reading-stats > span').evaluateAll(elements => elements.map(element => {
+    const rect = element.getBoundingClientRect();
+    return { left: rect.left, right: rect.right };
+  }));
+  assert.ok(rects.every(rect => rect.left >= 0 && rect.right <= 320), 'statistics wrap within a narrow viewport');
+  await screenshot(page, 'article-reading-statistics-mobile');
+
+  for (const route of ['docs/library', 'docs/years/2026', 'docs/think/update', 'docs/latest']) {
+    await page.goto(origin + '/#/' + route);
+    await page.waitForFunction(path => window.DOC_READ_PAGE_SOURCE?.path === path + '.md', route);
+    assert.equal(await page.locator('.article-reading-meta').count(), 0, route + ' is not an article');
+  }
+});
+
+test('page edge buttons keep the reading route and work with keyboard, reduced motion and narrow toolbars', async t => {
   const page = await pageFor(t);
   const route = '/#/docs/read-history/' + encodeURIComponent('《中国通史》纪录片学习笔记') + '?id=episode-026';
   await page.goto(origin + route);
   const button = page.getByRole('button', { name: '回到顶部', exact: true });
+  const bottomButton = page.getByRole('button', { name: '去底部', exact: true });
   await button.waitFor({ state: 'visible' });
   await page.waitForFunction(() => window.DocReadHistoryOutline && document.querySelectorAll('.history-study-time').length === 100);
   // Let Docsify finish its initial animated jump to episode-026 before testing a user action.
@@ -92,13 +149,24 @@ test('back-to-top keeps the reading route and works with keyboard, reduced motio
     await page.waitForFunction(() => window.scrollY === 0);
     assert.equal(page.url(), originalURL, 'returning to the top preserves the current article and anchor route');
   }
+  async function expectBottom() {
+    await page.waitForFunction(() => {
+      const page = document.scrollingElement;
+      return Math.abs(page.scrollHeight - page.clientHeight - page.scrollTop) <= 1;
+    });
+    assert.equal(page.url(), originalURL, 'going to the bottom preserves the current article and anchor route');
+  }
 
   assert.equal(await button.getAttribute('data-tooltip'), '回到顶部');
-  assert.equal(await button.evaluate(element => element.parentElement.lastElementChild === element), true);
+  assert.equal(await bottomButton.getAttribute('data-tooltip'), '去底部');
+  assert.equal(await bottomButton.evaluate(element => element.previousElementSibling.id), 'back-to-top');
+  assert.equal(await bottomButton.evaluate(element => element.parentElement.lastElementChild === element), true);
   await scrollDown();
   await button.click();
   await expectTop();
   await screenshot(page, 'history-back-to-top-desktop');
+  await bottomButton.click();
+  await expectBottom();
 
   await scrollDown();
   await page.locator('#random-reading').focus();
@@ -106,6 +174,10 @@ test('back-to-top keeps the reading route and works with keyboard, reduced motio
   assert.equal(await button.evaluate(element => document.activeElement === element), true, 'button follows random reading in keyboard order');
   await page.keyboard.press('Enter');
   await expectTop();
+  await page.keyboard.press('Tab');
+  assert.equal(await bottomButton.evaluate(element => document.activeElement === element), true, 'bottom button follows top button in keyboard order');
+  await page.keyboard.press('Enter');
+  await expectBottom();
 
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await scrollDown();
@@ -118,6 +190,10 @@ test('back-to-top keeps the reading route and works with keyboard, reduced motio
   await page.keyboard.press('Space');
   await expectTop();
   assert.equal(await page.evaluate(() => window.__topScrolls.at(-1)[0].behavior), 'instant', 'reduced motion skips animated scrolling');
+  await bottomButton.focus();
+  await page.keyboard.press('Space');
+  await expectBottom();
+  assert.equal(await page.evaluate(() => window.__topScrolls.at(-1)[0].behavior), 'instant', 'bottom button also respects reduced motion');
 
   for (const width of [390, 320]) {
     await page.setViewportSize({ width, height: 844 });
@@ -125,13 +201,15 @@ test('back-to-top keeps the reading route and works with keyboard, reduced motio
       const rect = element.getBoundingClientRect();
       return { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom };
     }));
-    assert.equal(bounds.length, 6);
-    assert.ok(bounds.every(rect => rect.left >= 0 && rect.right <= width && rect.top >= 0 && rect.bottom <= 844), `all six tools fit at ${width}px`);
+    assert.equal(bounds.length, 7);
+    assert.ok(bounds.every(rect => rect.left >= 0 && rect.right <= width && rect.top >= 0 && rect.bottom <= 844), `all seven tools fit at ${width}px`);
     const theme = await page.locator('#theme-toggle').boundingBox();
     assert.ok(bounds.every(rect => rect.right < theme.x), 'article tools do not overlap the theme button');
     await scrollDown();
     await button.click();
     await expectTop();
+    await bottomButton.click();
+    await expectBottom();
   }
   await screenshot(page, 'history-back-to-top-mobile');
 });

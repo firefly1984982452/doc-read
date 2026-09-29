@@ -132,3 +132,5 @@ date: 2026-09-05 16:22:39
 刚好最近几天又发布了GPT6.0，真的还是多读点书，赶快学习一下吧。
 
 ---
+
+![《杠杆思维：AI时代给普通人的认知升级系统》微信公众号封面](https://cdn.jsdelivr.net/gh/firefly1984982452/picgo-img/%E5%85%AC%E4%BC%97%E5%8F%B7%E5%9B%BE%E7%89%87/53-%E6%9D%8E%E5%B0%9A%E9%BE%99-%E6%9D%A0%E6%9D%86%E6%80%9D%E7%BB%B4-AI%E6%97%B6%E4%BB%A3%E7%BB%99%E6%99%AE%E9%80%9A%E4%BA%BA%E7%9A%84%E8%AE%A4%E7%9F%A5%E5%8D%87%E7%BA%A7%E7%B3%BB%E7%BB%9F-%E6%80%9D%E7%BB%B4%E5%AF%BC%E5%9B%BE%E4%B9%A6%E6%91%98%E8%AF%BB%E5%90%8E%E6%84%9F.png)

@@ -20,13 +20,14 @@ function element(tag, children = [], className = '') {
   };
 }
 
-test('only the Chinese history note is eligible, including encoded and anchored routes', () => {
-  const path = 'docs/read-history/《中国通史》纪录片学习笔记';
-  for (const route of ['#/' + path, '#/' + path + '.md', '#/' + encodeURI(path) + '?id=episode-001']) {
-    assert.equal(api.isHistoryNote(route), true);
+test('reading notes, diaries and essays are eligible, including encoded and anchored routes', () => {
+  for (const path of ['docs/read-history/《中国通史》纪录片学习笔记', 'docs/read-history/1-《史记》/《史记·十二本纪·1五帝本纪》', 'docs/read/普通笔记', 'docs/other/若华阅读笔记', 'docs/other/若华日记', 'docs/think/think']) {
+    for (const route of ['#/' + path, '#/' + path + '.md', '#/' + encodeURI(path) + '?id=chapter-1']) {
+      assert.equal(api.isArticle(route), true, route);
+    }
   }
-  for (const route of ['#/', '#/docs/read/普通笔记', '#/docs/other/若华阅读笔记', '#/' + path + '备份', '#/%E0%A4']) {
-    assert.equal(api.isHistoryNote(route), false);
+  for (const route of ['#/', '#/docs/library', '#/docs/years/2026', '#/docs/latest', '#/docs/catalog', '#/docs/think/update', '#/docs/think/about', '#/docs/read/', '#/%E0%A4']) {
+    assert.equal(api.isArticle(route), false, route);
   }
 });
 
@@ -40,13 +41,16 @@ test('Chinese characters, English words and numbers are counted without punctuat
   assert.equal(api.readingMinutes(401), 2);
 });
 
-test('folded text and inline emphasis count once while title, metadata and controls are excluded', () => {
+test('folded text and inline emphasis count once while title, metadata, captions and controls are excluded', () => {
   const collapsed = element('p', ['忽必', element('strong', ['烈']), '称帝。']);
   collapsed.hidden = true;
   const article = element('article', [
     element('h1', ['文章标题']),
     element('div', ['复制标题'], 'article-title-row'),
     element('p', ['date: 2023-11-10', element('span', ['总字数：999字'], 'history-reading-stats')], 'reading-date'),
+    element('p', ['总字数：999字'], 'article-reading-meta'),
+    element('p', [element('span', ['图片说明'], 'reading-image-caption')]),
+    element('figure', [element('figcaption', ['额外图片说明'])]),
     element('h2', ['元朝', element('button', ['展开全部'])]),
     collapsed,
     element('p', [element('a', ['史料来源'])]),

@@ -1,13 +1,16 @@
 (function (global) {
   'use strict';
 
-  var notePath = 'docs/read-history/《中国通史》纪录片学习笔记';
-  var excluded = 'h1, .article-title-row, .reading-date, .history-reading-stats, button, [role="button"], input, select, textarea, script, style, noscript, .docsify-pagination-container, .pagination-item, .countable, .word-count';
+  var excluded = 'h1, .article-title-row, .reading-date, .article-reading-meta, .history-reading-stats, .reading-image-caption, figcaption, button, [role="button"], input, select, textarea, script, style, noscript, .docsify-pagination-container, .pagination-item, .countable, .word-count';
 
-  function isHistoryNote(hash) {
+  function routePath(hash) {
     var route = String(hash || '').split('?')[0].replace(/^#\//, '').replace(/\.md$/, '');
-    try { route = decodeURIComponent(route); } catch (error) { return false; }
-    return route === notePath;
+    try { return decodeURIComponent(route); } catch (error) { return ''; }
+  }
+
+  function isArticle(hash) {
+    var route = routePath(hash);
+    return /^docs\/(?:read|read-history|other)\/.+/.test(route) || route === 'docs/think/think';
   }
 
   function bodyText(node) {
@@ -31,25 +34,36 @@
   }
 
   function mount() {
-    if (!isHistoryNote(global.location.hash)) return;
+    if (!isArticle(global.location.hash)) return;
     var source = global.DOC_READ_PAGE_SOURCE;
-    if (!source || source.path !== notePath + '.md') return;
+    if (!source || source.path !== routePath(global.location.hash) + '.md') return;
     var article = global.document.querySelector('.markdown-section');
-    var date = article && article.querySelector('p.reading-date');
-    if (!date) return;
+    if (!article || !article.querySelector('h1')) return;
+    var date = Array.from(article.children).find(function (node) {
+      return node.tagName === 'P' && (node.classList.contains('article-reading-meta') || /^\s*date\s*:/i.test(node.textContent));
+    });
+    if (!date) {
+      // Undated essays and diaries still show reading statistics, without inventing a date.
+      date = global.document.createElement('p');
+      var title = article.querySelector('.article-title-row, h1');
+      title.insertAdjacentElement('afterend', date);
+    }
+    date.classList.add('article-reading-meta');
 
     var count = countWords(bodyText(article));
     var stats = date.querySelector('.history-reading-stats');
     if (!stats) {
-      var dateValue = global.document.createElement('span');
-      while (date.firstChild) dateValue.appendChild(date.firstChild);
-      date.appendChild(dateValue);
+      if (date.firstChild) {
+        var dateValue = global.document.createElement('span');
+        while (date.firstChild) dateValue.appendChild(date.firstChild);
+        date.appendChild(dateValue);
+      }
       stats = global.document.createElement('span');
       stats.className = 'history-reading-stats';
       date.appendChild(stats);
       date.classList.add('history-reading-date');
     }
-    stats.title = '统计正文（含折叠内容）；汉字逐字计数，英文和数字按词计数；不计文章标题、日期、标点、链接地址及操作按钮。按约 400 字/分钟估算，向上取整。';
+    stats.title = '统计正文（含折叠内容）；汉字逐字计数，英文和数字按词计数；不计文章标题、日期、标点、链接地址、图片说明及操作按钮。按约 400 字/分钟估算，向上取整。';
     stats.textContent = '';
     ['总字数：' + count.toLocaleString('zh-CN') + ' 字', '预计阅读：' + readingMinutes(count) + ' 分钟'].forEach(function (label) {
       var item = global.document.createElement('span');
@@ -58,5 +72,6 @@
     });
   }
 
-  global.DocReadHistoryStats = { isHistoryNote: isHistoryNote, bodyText: bodyText, countWords: countWords, readingMinutes: readingMinutes, mount: mount };
+  // Keep the existing asset and global name so cached pages can load the generalized implementation.
+  global.DocReadHistoryStats = { isArticle: isArticle, bodyText: bodyText, countWords: countWords, readingMinutes: readingMinutes, mount: mount };
 }(window));
