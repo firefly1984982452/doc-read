@@ -4,7 +4,7 @@
   function isTarget() {
     var route = (global.location.hash || '').split('?')[0];
     try { route = decodeURIComponent(route); } catch (error) { return false; }
-    return /^#\/docs\/other\/若华阅读笔记(?:\.md)?$/.test(route);
+    return /^#\/docs\/other\/若华(?:阅读笔记|日记)(?:\.md)?$/.test(route);
   }
 
   function textOf(node) {

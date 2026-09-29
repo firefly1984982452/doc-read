@@ -18,11 +18,13 @@ function siblings(...nodes) {
   return nodes[0];
 }
 
-test('copy controls are limited to the exact Ruohua route, including encoded links and anchors', () => {
-  for (const route of ['#/docs/other/若华阅读笔记', '#/docs/other/若华阅读笔记.md?id=一', '#/docs/other/' + encodeURIComponent('若华阅读笔记')]) {
-    assert.equal(load(route).isTarget(), true);
+test('copy controls support both exact Ruohua routes, including encoded links and anchors', () => {
+  for (const name of ['若华阅读笔记', '若华日记']) {
+    for (const route of ['#/docs/other/' + name, '#/docs/other/' + name + '.md?id=一', '#/docs/other/' + encodeURIComponent(name)]) {
+      assert.equal(load(route).isTarget(), true);
+    }
   }
-  for (const route of ['#/', '#/docs/read/若华阅读笔记', '#/docs/other/其他', '#/docs/other/若华阅读笔记备份', '#/%E0%A4']) {
+  for (const route of ['#/', '#/docs/read/若华阅读笔记', '#/docs/read/若华日记', '#/docs/other/其他', '#/docs/other/若华阅读笔记备份', '#/docs/other/若华日记备份', '#/%E0%A4']) {
     assert.equal(load(route).isTarget(), false);
   }
 });

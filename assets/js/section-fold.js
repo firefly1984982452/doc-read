@@ -38,6 +38,7 @@
     try { route = decodeURIComponent(route); } catch (error) { /* Keep malformed routes unchanged. */ }
     // Both Ruohua pages start as compact lists, regardless of old saved states.
     if (/^#\/docs\/other\/若华(?:阅读笔记|日记)(?:\.md)?$/.test(route)) return true;
+    if (/^#\/docs\/read-history\/《中国通史》纪录片学习笔记(?:\.md)?$/.test(route)) return true;
     try { return window.sessionStorage.getItem(key) === '1'; }
     catch (error) { return false; }
   }
@@ -87,7 +88,7 @@
 
     nodes.forEach(function (node) {
       node.hidden = false;
-      node.classList.remove('is-fold-leaving');
+      node.classList.remove('is-fold-entering', 'is-fold-leaving');
       if (options && options.animate && !reduceMotion) node.classList.add('is-fold-entering');
     });
     if (options && options.animate && !reduceMotion) {
@@ -121,12 +122,7 @@
     });
   }
 
-  function revealCurrentAnchor(article) {
-    var query = (window.location.hash || '').split('?')[1] || '';
-    var anchor = new URLSearchParams(query).get('id');
-    if (!anchor) return;
-    try { anchor = decodeURIComponent(anchor); } catch (error) { /* Keep the original anchor. */ }
-    var target = document.getElementById(anchor);
+  function revealTarget(article, target, options) {
     if (!target || !article.contains(target)) return;
     while (target.parentElement && target.parentElement !== article) target = target.parentElement;
     var current = target;
@@ -134,7 +130,7 @@
       if (current.tagName === 'H2') {
         var button = current.querySelector('.section-fold-toggle');
         if (button && button.getAttribute('aria-expanded') === 'false') {
-          setCollapsed(current, button, sectionNodes(current), false, { animate: true, persist: true });
+          setCollapsed(current, button, sectionNodes(current), false, options);
         }
         return;
       }
@@ -142,14 +138,37 @@
     }
   }
 
+  function revealCurrentAnchor(article) {
+    var query = (window.location.hash || '').split('?')[1] || '';
+    var anchor = new URLSearchParams(query).get('id');
+    if (!anchor) return;
+    try { anchor = decodeURIComponent(anchor); } catch (error) { /* Keep the original anchor. */ }
+    revealTarget(article, document.getElementById(anchor), { animate: true, persist: true });
+  }
+
+  function mountHeadings(article) {
+    Array.from(article.children).filter(function (element) { return element.tagName === 'H2'; })
+      .forEach(mountHeading);
+  }
+
+  function reveal(target) {
+    if (!isFoldablePage()) return;
+    var article = document.querySelector('.markdown-section');
+    if (!article || !target || !article.contains(target)) return;
+    mountHeadings(article);
+    revealTarget(article, target, { animate: false, persist: false });
+  }
+
   function mount() {
     if (!isFoldablePage()) return;
     var article = document.querySelector('.markdown-section');
     if (!article) return;
-    Array.from(article.children).filter(function (element) { return element.tagName === 'H2'; })
-      .forEach(mountHeading);
+    mountHeadings(article);
     window.setTimeout(function () { revealCurrentAnchor(article); }, 0);
+    document.dispatchEvent(new CustomEvent('doc-read:sections-ready'));
   }
+
+  window.DocReadSectionFold = { mount: mount, reveal: reveal };
 
   document.addEventListener('doc-read:rendered', mount);
   window.addEventListener('hashchange', function () { window.setTimeout(mount, 60); });

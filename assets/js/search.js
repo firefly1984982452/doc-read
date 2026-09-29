@@ -8,6 +8,15 @@
   var latestQuery = '';
   var loadedChunks = new Map();
   var normalizedItems = new WeakMap();
+  var searchContainer = null;
+  var searchHasFocus = false;
+
+  function updateHeaderHeight() {
+    var nav = document.querySelector('.app-nav');
+    var height = (nav && nav.getBoundingClientRect().height) || 57;
+    document.documentElement.style.setProperty('--topbar-height', height + 'px');
+    if (window.$docsify) window.$docsify.topMargin = Math.ceil(height) + 20;
+  }
 
   function escapeHtml(value) {
     return String(value).replace(/[&<>"']/g, function (character) {
@@ -31,14 +40,6 @@
       });
     }
     return indexPromise;
-  }
-
-  function excerpt(text, query) {
-    var lower = text.toLocaleLowerCase('zh-CN');
-    var index = lower.indexOf(query);
-    var start = Math.max(0, index < 0 ? 0 : index - 42);
-    var end = Math.min(text.length, start + 108);
-    return (start ? '…' : '') + text.slice(start, end) + (end < text.length ? '…' : '');
   }
 
   function rank(items, query, titleOnly) {
@@ -87,13 +88,15 @@
       return;
     }
     var matches = search(titleItems, contentItems, query);
-    results.hidden = false;
+    results.hidden = !container.classList.contains('is-open');
     if (matches.length) {
       results.innerHTML = matches.map(function (match) {
-        var summary = match.item.text ? excerpt(match.item.text, query) : '书名匹配';
-        return '<a class="matching-post" href="#' + escapeHtml(match.item.path) + '">' +
-          '<h2>' + escapeHtml(match.item.title) + '</h2>' +
-          '<p>' + escapeHtml(summary) + '</p>' +
+        var highlighter = window.DocReadSearchHighlight;
+        var summary = match.item.text ? highlighter.excerpt(match.item.text, query) : '书名匹配';
+        var href = '#' + match.item.path + (match.item.path.indexOf('?') === -1 ? '?' : '&') + 'search=' + encodeURIComponent(query);
+        return '<a class="matching-post" href="' + escapeHtml(href) + '">' +
+          '<h2>' + highlighter.highlightText(match.item.title, query) + '</h2>' +
+          '<p>' + highlighter.highlightText(summary, query) + '</p>' +
         '</a>';
       }).join('');
     } else {
@@ -131,19 +134,42 @@
   }
 
   function mount() {
-    var sidebar = document.querySelector('.sidebar');
-    if (!sidebar || document.getElementById('doc-read-search')) return;
+    var nav = document.querySelector('.app-nav');
+    var useNavbar = nav && !window.matchMedia('(max-width: 768px)').matches;
+    var host = useNavbar ? nav : document.body;
+    if (!host) return;
+    if (nav && nav.dataset.searchObserverBound !== 'true') {
+      nav.dataset.searchObserverBound = 'true';
+      // Docsify can replace the navigation after rendering the article.
+      new MutationObserver(mount).observe(nav, { childList: true });
+      if (window.ResizeObserver) new ResizeObserver(updateHeaderHeight).observe(nav);
+    }
+    if (searchContainer) {
+      if (searchContainer.parentElement !== host) {
+        var restoreFocus = searchHasFocus;
+        host.insertBefore(searchContainer, host.firstChild);
+        if (restoreFocus) searchContainer.querySelector('input').focus({ preventScroll: true });
+      }
+      searchContainer.classList.toggle('standalone-search', !useNavbar);
+      updateHeaderHeight();
+      return;
+    }
 
     var container = document.createElement('div');
-    container.className = 'search';
+    searchContainer = container;
+    container.className = 'search top-search';
+    container.classList.toggle('standalone-search', !useNavbar);
     container.id = 'doc-read-search';
     container.setAttribute('role', 'search');
     container.innerHTML = '<label class="visually-hidden" for="doc-read-search-input">搜索阅读笔记</label>' +
       '<input id="doc-read-search-input" type="search" autocomplete="off" placeholder="搜索书名、作者或笔记内容" aria-controls="doc-read-search-results">' +
+      '<button type="button" class="search-clear" data-search-clear aria-label="清除搜索" title="清除搜索" hidden><span aria-hidden="true">×</span></button>' +
       '<div id="doc-read-search-results" class="results-panel" data-search-results aria-live="polite" hidden></div>';
-    sidebar.insertBefore(container, sidebar.firstChild);
+    host.insertBefore(container, host.firstChild);
+    updateHeaderHeight();
 
     var input = container.querySelector('input');
+    var clearButton = container.querySelector('[data-search-clear]');
     var debounceTimer;
     var progressTimer;
     var queryVersion = 0;
@@ -173,19 +199,56 @@
         results.insertAdjacentHTML('beforeend', '<p class="search-empty">部分搜索内容加载失败。<button type="button" data-search-retry>重试</button></p>');
       });
     }
+    function closeResults() {
+      container.classList.remove('is-open');
+      container.querySelector('[data-search-results]').hidden = true;
+    }
+    function syncRouteQuery() {
+      var query = new URLSearchParams((window.location.hash || '').split('?')[1] || '').get('search');
+      if (query === null) return;
+      input.value = query;
+      latestQuery = query.trim();
+      clearButton.hidden = !input.value;
+    }
     function clearSearch() {
       queryVersion += 1;
       clearTimeout(debounceTimer);
       clearTimeout(progressTimer);
       input.value = '';
       latestQuery = '';
+      clearButton.hidden = true;
       container.classList.remove('is-loading');
+      closeResults();
       render(container, [], '', false);
+      var hash = window.location.hash || '';
+      var queryStart = hash.indexOf('?');
+      var params = new URLSearchParams(queryStart < 0 ? '' : hash.slice(queryStart + 1));
+      if (params.has('search')) {
+        params.delete('search');
+        var remaining = params.toString();
+        // Updating only the URL avoids a Docsify render and keeps the reader's position.
+        var url = new URL(window.location.href);
+        url.hash = hash.slice(0, queryStart) + (remaining ? '?' + remaining : '');
+        window.history.replaceState(window.history.state, '', url.href);
+      }
+      window.DocReadSearchHighlight.clear();
     }
-    input.addEventListener('focus', function () { loadIndex().catch(function () { /* Retried when searching. */ }); });
+    syncRouteQuery();
+    window.addEventListener('hashchange', syncRouteQuery);
+    input.addEventListener('focus', function () {
+      searchHasFocus = true;
+      container.classList.add('is-open');
+      if (latestQuery) runSearch();
+      loadIndex().catch(function () { /* Retried when searching. */ });
+    });
+    input.addEventListener('blur', function () {
+      if (container.isConnected) searchHasFocus = false;
+    });
     input.addEventListener('input', function () {
+      container.classList.add('is-open');
       queryVersion += 1;
-      latestQuery = input.value.trim().toLocaleLowerCase('zh-CN');
+      latestQuery = input.value.trim();
+      clearButton.hidden = !input.value;
       clearTimeout(debounceTimer);
       if (!latestQuery) { clearSearch(); return; }
       debounceTimer = setTimeout(runSearch, 180);
@@ -197,13 +260,28 @@
       }
     });
     container.addEventListener('click', function (event) {
+      if (event.target.closest('[data-search-clear]')) {
+        input.focus({ preventScroll: true });
+        clearSearch();
+        return;
+      }
       if (event.target.closest('[data-search-retry]')) { queryVersion += 1; runSearch(); return; }
-      if (!event.target.closest('.matching-post')) return;
-      clearSearch();
+      var matchedLink = event.target.closest('.matching-post');
+      if (!matchedLink) return;
+      var href = matchedLink.getAttribute('href');
+      closeResults();
+      if (!event.ctrlKey && !event.metaKey && !event.shiftKey && !event.altKey) {
+        document.dispatchEvent(new CustomEvent('doc-read:search-result', { detail: { href: href } }));
+      }
+    });
+    document.addEventListener('click', function (event) {
+      if (container.contains(event.target)) return;
+      closeResults();
     });
   }
 
   document.addEventListener('doc-read:rendered', mount);
   document.addEventListener('DOMContentLoaded', mount);
+  window.addEventListener('resize', mount);
   setTimeout(mount, 300);
 }());

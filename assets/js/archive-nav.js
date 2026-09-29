@@ -28,8 +28,30 @@
     }).join('');
   }
 
+  function positionSubmenu(item) {
+    var menu = item.querySelector(':scope > ul');
+    if (!menu || !menu.classList.contains('library-category-menu')) return;
+    if (window.matchMedia('(max-width: 768px)').matches) {
+      item.classList.remove('opens-left');
+      return;
+    }
+    var bounds = item.getBoundingClientRect();
+    var width = menu.getBoundingClientRect().width;
+    item.classList.toggle('opens-left', bounds.right + width > window.innerWidth - 12 && bounds.left - width >= 12);
+  }
+
   function setExpanded(item, expanded) {
     if (!item) return;
+    if (expanded) {
+      Array.from(item.parentElement.children).forEach(function (sibling) {
+        if (sibling !== item && sibling.classList.contains('dropdown-nav-item') && sibling.classList.contains('is-open')) {
+          setExpanded(sibling, false);
+        }
+      });
+      positionSubmenu(item);
+    } else {
+      item.querySelectorAll('.dropdown-nav-item.is-open').forEach(function (child) { setExpanded(child, false); });
+    }
     item.classList.toggle('is-open', expanded);
     if (!expanded) {
       delete item.dataset.dropdownTouchOpen;
@@ -67,14 +89,23 @@
       if (!item.contains(event.relatedTarget)) setExpanded(item, false);
     });
     item.addEventListener('click', function (event) {
-      if (event.target.closest('.dropdown-nav-menu a')) setExpanded(item, false);
+      if (!event.defaultPrevented && event.target.closest('.dropdown-nav-menu a')) setExpanded(item, false);
     });
     link.addEventListener('click', function (event) {
       if (!window.matchMedia('(hover: none), (max-width: 768px)').matches) return;
       event.preventDefault();
+      event.stopPropagation();
       var expanded = item.dataset.dropdownTouchOpen !== 'true';
       item.dataset.dropdownTouchOpen = expanded ? 'true' : 'false';
       setExpanded(item, expanded);
+    });
+    link.addEventListener('keydown', function (event) {
+      if (event.key !== 'ArrowDown' && !(event.key === 'ArrowRight' && menu.classList.contains('library-category-menu'))) return;
+      event.preventDefault();
+      event.stopPropagation();
+      setExpanded(item, true);
+      var firstLink = menu.querySelector('a');
+      if (firstLink) firstLink.focus();
     });
     return menu;
   }
@@ -111,6 +142,29 @@
     link.classList.toggle('active', active);
   }
 
+  function enhanceLibraryMenu(link) {
+    var menu = enhanceDropdown(link, 'library-nav-menu', '选择书目分类');
+    if (!menu) return;
+    Array.from(menu.children).forEach(function (item) {
+      var trigger = item.querySelector(':scope > a');
+      if (trigger && item.querySelector(':scope > ul')) {
+        enhanceDropdown(trigger, 'library-category-menu', trigger.textContent.trim() + '子分类');
+      }
+    });
+    var route = window.location.hash;
+    try { route = decodeURIComponent(route); } catch (error) { /* Keep malformed routes inactive. */ }
+    route = route.replace(/\.md(?=\?|$)/, '');
+    link.classList.toggle('active', /^#\/docs\/(?:library|catalog)(?:\?|$)/.test(route));
+    menu.querySelectorAll('a').forEach(function (entry) {
+      var target = entry.getAttribute('href').replace(/\.md(?=\?|$)/, '');
+      try { target = decodeURIComponent(target); } catch (error) { /* Keep the original target. */ }
+      var current = target === route;
+      entry.classList.toggle('active', current);
+      if (current) entry.setAttribute('aria-current', 'page');
+      else entry.removeAttribute('aria-current');
+    });
+  }
+
   function mount() {
     document.querySelectorAll('.app-nav').forEach(function (nav) {
       if (nav.dataset.dropdownObserverBound === 'true') return;
@@ -120,6 +174,7 @@
     });
     document.querySelectorAll('.app-nav a').forEach(function (link) {
       if (link.textContent.trim() === '若华') enhanceRuohuaMenu(link);
+      if (link.textContent.trim() === '全部书目') enhanceLibraryMenu(link);
     });
     loadYears().then(function (years) {
       if (!years.length) return;
@@ -165,11 +220,25 @@
     });
   });
   document.addEventListener('keydown', function (event) {
-    if (event.key !== 'Escape') return;
+    var focused = document.activeElement;
+    var item;
+    if (event.key === 'ArrowLeft') {
+      var submenu = focused && focused.closest('.library-category-menu');
+      if (!submenu) return;
+      item = submenu.parentElement;
+    } else if (event.key === 'Escape') {
+      var openItems = Array.from(document.querySelectorAll('.dropdown-nav-item.is-open'));
+      item = (focused && focused.closest('.dropdown-nav-item.is-open')) || openItems[openItems.length - 1];
+    } else return;
+    if (!item) return;
+    event.preventDefault();
+    var trigger = item.querySelector(':scope > a');
+    if (trigger && item.contains(focused)) trigger.focus();
+    setExpanded(item, false);
+  });
+  window.addEventListener('resize', function () {
     document.querySelectorAll('.dropdown-nav-item.is-open').forEach(function (item) {
-      var trigger = item.querySelector(':scope > a');
-      if (trigger && item.contains(document.activeElement)) trigger.focus();
-      setExpanded(item, false);
+      positionSubmenu(item);
     });
   });
   setTimeout(mount, 300);

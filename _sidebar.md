@@ -8,9 +8,10 @@
 
 - **[全部书目](/docs/library.md)**
   - [古文典籍](/docs/library.md?id=古文典籍)
-    - [《黄帝内经》](/docs/library.md?id=黄帝内经)
-    - [《庄子》](/docs/library.md?id=庄子)
+    - [《黄帝内经》](/docs/library.md?id=《黄帝内经》)
+    - [《庄子》](/docs/library.md?id=《庄子》)
     - [二十四史](/docs/library.md?id=二十四史)
+    - [历史纪录片](/docs/library.md?id=历史纪录片)
   - [中国文学](/docs/library.md?id=中国文学)
     - [古典与现代经典](/docs/library.md?id=古典与现代经典)
     - [当代小说与历史写作](/docs/library.md?id=当代小说与历史写作)
@@ -23,6 +24,7 @@
   - [完整索引](/docs/library.md?id=完整索引)
 
 - **专题阅读**
+  - [《中国通史》纪录片学习笔记](/docs/read-history/《中国通史》纪录片学习笔记.md)
   - [《黄帝内经》](/docs/read/徐文兵、梁冬《黄帝内经》.md)
   - [《庄子》](/docs/read/庄周《庄子》.md)
   - [二十四史阅读记录](/docs/read-history/《二十四史》阅读记录.md)

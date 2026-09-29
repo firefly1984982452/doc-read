@@ -35,6 +35,8 @@ for (const relative of [
   'assets/js/route-loader.js',
   'assets/js/section-fold.js',
   'assets/js/year-word-total.js',
+  'assets/js/history-reading-stats.js',
+  'assets/js/history-outline.js',
   'assets/js/title-copy.js',
   'assets/js/typo-checker.js',
   'assets/js/wechat-copy.js',

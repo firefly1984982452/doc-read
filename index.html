@@ -19,9 +19,9 @@
   <link rel="icon" href="./assets/images/favicon.svg" type="image/svg+xml">
   <link rel="manifest" href="./site.webmanifest">
   <link rel="stylesheet" href="./assets/vendor/docsify/vue.css">
-  <link rel="stylesheet" href="./assets/css/blog.css?v=5d8b7f5d4d">
+  <link rel="stylesheet" href="./assets/css/blog.css?v=6e1ab7e32a">
   <script>
-    window.DOC_READ_BUILD = '5d8b7f5d4d';
+    window.DOC_READ_BUILD = '6e1ab7e32a';
     (function () {
       var savedTheme = localStorage.getItem('doc-read-theme');
       var systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -86,6 +86,14 @@
       </span>
       <span class="visually-hidden">随机一篇内容</span>
     </button>
+    <button id="back-to-top" class="article-tool back-to-top" type="button" aria-label="回到顶部" data-tooltip="回到顶部">
+      <span class="article-tool-icon back-to-top-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" focusable="false">
+          <path d="M5 4h14M12 20V8m-6 6 6-6 6 6" />
+        </svg>
+      </span>
+      <span class="visually-hidden">回到顶部</span>
+    </button>
   </div>
   <div id="wechat-copy-toast" class="wechat-copy-toast" role="status" aria-live="polite" hidden></div>
   <div id="xhs-export-toast" class="wechat-copy-toast xhs-export-toast" role="status" aria-live="polite" aria-atomic="true" hidden>
@@ -108,7 +116,7 @@
   <div id="app">正在打开书房…</div>
   <noscript>这个网站需要启用 JavaScript 才能浏览阅读笔记。</noscript>
 
-  <script src="./assets/data/legacy-routes.js?v=5d8b7f5d4d"></script>
+  <script src="./assets/data/legacy-routes.js?v=6e1ab7e32a"></script>
   <script>
     window.$docsify = {
       name: '丹的阅读笔记',
@@ -126,7 +134,7 @@
       autoHeader: false,
       relativePath: false,
       notFoundPage: '404.md',
-      topMargin: 32,
+      topMargin: 80,
       count: {
         countable: true,
         fontsize: '0.82em',
@@ -147,7 +155,7 @@
               path: route ? route.replace(/\.md$/, '') + '.md' : '',
               markdown: markdown
             };
-            if (route.replace(/\.md$/, '') === 'docs/other/若华阅读笔记') {
+            if (/^docs\/other\/若华(?:阅读笔记|日记)(?:\.md)?$/.test(route)) {
               return markdown.replace(/^[ \t]*\[手绘漫画链接\]\([ \t]*\)[ \t]*(?:\r?\n|$)/gm, '');
             }
             return markdown;
@@ -167,7 +175,7 @@
             var articleTitle = document.querySelector('.markdown-section h1');
             var isReadingNote = /^#\/docs\/(?:read|read-history)\//.test(window.location.hash);
             document.body.classList.toggle('reading-note-page', isReadingNote);
-            var isRuohuaNote = window.DOC_READ_PAGE_SOURCE && window.DOC_READ_PAGE_SOURCE.path === 'docs/other/若华阅读笔记.md';
+            var isRuohuaNote = window.DOC_READ_PAGE_SOURCE && /^docs\/other\/若华(?:阅读笔记|日记)\.md$/.test(window.DOC_READ_PAGE_SOURCE.path);
             document.body.classList.toggle('ruohua-note-page', Boolean(isRuohuaNote));
             document.querySelectorAll('.markdown-section > p').forEach(function (paragraph) {
               var isMetadata = /^\s*date\s*:/i.test(paragraph.textContent);
@@ -218,11 +226,12 @@
   <script src="./assets/vendor/docsify/docsify-pagination.min.js"></script>
   <!-- <script src="./assets/vendor/docsify/countable.min.js"></script> -->
   <script src="./assets/js/site.js"></script>
-  <script src="./assets/data/typo-rules.js?v=5d8b7f5d4d"></script>
-  <script src="./assets/js/resource-loader.js?v=5d8b7f5d4d"></script>
-  <script src="./assets/js/archive-nav.js?v=5d8b7f5d4d"></script>
-  <script src="./assets/js/search.js?v=5d8b7f5d4d"></script>
-  <script src="./assets/js/route-loader.js?v=5d8b7f5d4d"></script>
+  <script src="./assets/data/typo-rules.js?v=6e1ab7e32a"></script>
+  <script src="./assets/js/resource-loader.js?v=6e1ab7e32a"></script>
+  <script src="./assets/js/archive-nav.js?v=6e1ab7e32a"></script>
+  <script src="./assets/js/search-highlight.js?v=6e1ab7e32a"></script>
+  <script src="./assets/js/search.js?v=6e1ab7e32a"></script>
+  <script src="./assets/js/route-loader.js?v=6e1ab7e32a"></script>
 </body>
 
 </html>

@@ -190,6 +190,7 @@ const versionedAssets = [
   'assets/js/resource-loader.js',
   'assets/js/archive-nav.js',
   'assets/js/route-loader.js',
+  'assets/js/search-highlight.js',
   'assets/js/search.js'
 ];
 const versionSourceAssets = [
@@ -206,6 +207,8 @@ const versionSourceAssets = [
   'assets/js/typo-checker.js',
   'assets/js/section-fold.js',
   'assets/js/year-word-total.js',
+  'assets/js/history-reading-stats.js',
+  'assets/js/history-outline.js',
   'assets/js/title-copy.js',
   'assets/js/ruohua-copy.js',
   ...searchChunks.map((_, index) => `assets/data/search-chunks/${index}.json`)

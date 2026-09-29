@@ -20,7 +20,8 @@
     var isReadingNote = /^#\/docs\/(?:read|read-history)\//.test(route);
     var decodedRoute = route;
     try { decodedRoute = decodeURIComponent(route); } catch (error) { /* Ignore malformed routes. */ }
-    var isRuohua = /^#\/docs\/other\/若华阅读笔记(?:\.md)?$/.test(decodedRoute);
+    var isRuohua = /^#\/docs\/other\/若华(?:阅读笔记|日记)(?:\.md)?$/.test(decodedRoute);
+    var isHistoryNote = /^#\/docs\/read-history\/《中国通史》纪录片学习笔记(?:\.md)?$/.test(decodedRoute);
 
     window.DocReadResources.script('assets/js/section-fold.js')
       .catch(function (error) { console.error(error); });
@@ -38,6 +39,14 @@
     if (isYearArchive) {
       window.DocReadResources.script('assets/js/year-word-total.js')
         .then(function () { window.DocReadYearWordTotal.mount(); })
+        .catch(function (error) { console.error(error); });
+    }
+    if (isHistoryNote) {
+      window.DocReadResources.script('assets/js/history-outline.js')
+        .then(function () { window.DocReadHistoryOutline.mount(); })
+        .catch(function (error) { console.error(error); });
+      window.DocReadResources.script('assets/js/history-reading-stats.js')
+        .then(function () { window.DocReadHistoryStats.mount(); })
         .catch(function (error) { console.error(error); });
     }
     if (isReadingNote) {

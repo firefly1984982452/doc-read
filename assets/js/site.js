@@ -4,6 +4,12 @@
   var root = document.documentElement;
   var toggle = document.getElementById('theme-toggle');
   var progress = document.getElementById('reading-progress');
+  var backToTop = document.getElementById('back-to-top');
+
+  if (backToTop) backToTop.addEventListener('click', function () {
+    var reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    window.scrollTo({ top: 0, left: 0, behavior: reducedMotion ? 'instant' : 'smooth' });
+  });
 
   function closeCoverAndShowRoute(route) {
     var cover = document.querySelector('.cover');

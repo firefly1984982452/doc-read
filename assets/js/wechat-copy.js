@@ -86,6 +86,18 @@
   function prepareArticle(source, options) {
     options = options || {};
     var article = source.cloneNode(true);
+    // This must run on the clone before classes/data attributes are stripped.
+    // Exact text matching also covers a copy before the async history mount finishes.
+    if (options.excludeHistoryMetadata) {
+      article.querySelectorAll(':scope > p').forEach(function (paragraph) {
+        if (isHistoryStudyTime(paragraph) || isHistoryWatch(paragraph)) paragraph.remove();
+      });
+      article.querySelectorAll(':scope > blockquote').forEach(function (quote) {
+        var text = quote.textContent.trim();
+        if (/^学习日期待核对[：:]/.test(text) && /集原记为\s*\d{4}年\d{1,2}月\d{1,2}日/.test(text) &&
+            /此处保留原值。朝代归属和集数顺序沿用原记录。$/.test(text)) quote.remove();
+      });
+    }
     article.querySelectorAll('.section-fold-item[hidden]').forEach(function (element) {
       element.removeAttribute('hidden');
     });
@@ -95,6 +107,19 @@
     article.querySelectorAll('.article-title-row').forEach(unwrap);
 
     article.querySelectorAll('a.anchor').forEach(unwrap);
+    if (options.excludeHistoryReflectionSection) {
+      article.querySelectorAll(':scope > h2').forEach(function (heading) {
+        if (heading.textContent.trim() !== '阅读总结与观后感') return;
+        var node = heading.nextSibling;
+        heading.remove();
+        // Include collapsed content and comments, stopping at the next peer section.
+        while (node && !/^(?:H1|H2)$/.test(node.nodeName)) {
+          var next = node.nextSibling;
+          node.remove();
+          node = next;
+        }
+      });
+    }
     article.querySelectorAll('a').forEach(function (link) {
       var href = publicUrl(link.getAttribute('href'));
       if (href) link.setAttribute('href', href);
@@ -124,8 +149,75 @@
     return article;
   }
 
+  function isHistoryArticle(source) {
+    var path = (window.location.hash || '').split('?')[0].replace(/^#\//, '').replace(/\.md$/, '');
+    try { path = decodeURIComponent(path); } catch (_) { return false; }
+    var title = source.querySelector('h1');
+    return path === 'docs/read-history/《中国通史》纪录片学习笔记' && title &&
+      /^《中国通史》\s*(?:100\s*集\s*)?纪录片学习笔记(?:\s|\||$)/.test(title.textContent.trim());
+  }
+
+  function isHistoryStudyTime(paragraph) {
+    return /^学习时间\s*[：:]\s*\d{4}\s*年\s*\d{1,2}\s*月\s*\d{1,2}\s*日\s*$/.test(paragraph.textContent.trim());
+  }
+
+  function isHistoryWatch(paragraph) {
+    var link = paragraph.querySelector('a');
+    return link && /^观看本集\s*[（(]哔哩哔哩[）)]$/.test(paragraph.textContent.trim()) &&
+      /^https:\/\/(?:www\.)?bilibili\.com\/bangumi\/play\/ep\d+(?:[?#]|$)/.test(link.getAttribute('href') || '');
+  }
+
+  // Use real paragraphs and inline physical indents: pasted editors do not retain
+  // the site's outline classes, and a single paragraph only indents its first line.
+  function formatHistoryOutline(article) {
+    var circledNumber = /^[①-⑳㉑-㉟㊱-㊿]/;
+    var letterNumber = /^[a-zA-Z][).）．]/;
+    article.querySelectorAll(':scope > p').forEach(function (paragraph) {
+      var lines = Array.from(paragraph.children).filter(function (node) { return node.tagName === 'SPAN'; });
+      if (!lines.some(function (line) { return circledNumber.test(line.textContent.trim()); })) return;
+      // Only convert the spreadsheet's span + br groups, never mixed prose or media.
+      if (!Array.from(paragraph.childNodes).every(function (node) {
+        return node.nodeType === 3 ? !node.textContent.trim() :
+          node.nodeType === 8 || /^(?:SPAN|BR)$/.test(node.nodeName);
+      }) || paragraph.querySelector('img, svg, video, iframe')) return;
+
+      var group = document.createElement('section');
+      applyStyles(group, { margin: paragraph.style.margin, padding: '0', textIndent: '0' });
+      var hasTopic = false;
+      var numberLevel = 1;
+      lines.forEach(function (line) {
+        if (!line.textContent.trim()) return;
+        var text = line.textContent.trim();
+        var isNumber = circledNumber.test(text);
+        var isLetter = letterNumber.test(text);
+        var level = 1;
+        if (isNumber) {
+          numberLevel = hasTopic ? 2 : 1;
+          level = numberLevel;
+        } else if (isLetter) {
+          level = numberLevel + 1;
+        } else {
+          hasTopic = true;
+        }
+        var row = document.createElement('p');
+        row.style.cssText = paragraph.style.cssText;
+        applyStyles(row, { margin: '0', marginLeft: (level * 2) + 'em',
+          padding: '0', paddingLeft: isNumber || isLetter ? '1.4em' : '0',
+          textIndent: isNumber || isLetter ? '-1.4em' : '0',
+          textAlign: 'left', boxSizing: 'border-box' });
+        row.appendChild(line);
+        group.appendChild(row);
+      });
+      paragraph.replaceWith(group);
+    });
+  }
+
   function styleArticle(source) {
-    var article = prepareArticle(source);
+    var isHistory = isHistoryArticle(source);
+    var article = prepareArticle(source, {
+      excludeHistoryMetadata: isHistory,
+      excludeHistoryReflectionSection: isHistory
+    });
 
     article.querySelectorAll('img').forEach(function (image) {
       applyStyles(image, {
@@ -273,6 +365,28 @@
       applyStyles(rule, { border: '0', borderTop: '1px solid #e8d7f8', margin: '16px 0' });
     });
 
+    if (isHistory) {
+      article.querySelectorAll(':scope > p').forEach(function (label) {
+        var labelText = label.textContent.trim();
+        if (!/^(?:本集笔记|著名事件、名人名事、典故|备注)[：:]$/.test(labelText)) return;
+        applyStyles(label, { background: 'transparent', border: '0', padding: '0',
+          color: '#8426ec', fontSize: '16px', fontWeight: '700',
+          lineHeight: '1.75', letterSpacing: 'normal', textAlign: 'left', textIndent: '0' });
+        label.querySelectorAll('strong, b, span').forEach(function (text) {
+          applyStyles(text, { color: 'inherit', fontSize: 'inherit', fontWeight: 'inherit',
+            lineHeight: 'inherit', letterSpacing: 'inherit' });
+        });
+        if (!/^著名事件、名人名事、典故[：:]$/.test(labelText)) return;
+        var details = label.nextElementSibling;
+        if (!details || details.tagName !== 'P' || details.querySelector('img')) return;
+        applyStyles(details, { background: '#faf6ff', borderLeft: '3px solid #dfc4ff', borderRadius: '0 8px 8px 0',
+          fontSize: '15px', lineHeight: '1.9', margin: '0 0 19px', padding: '11px 16px 13px', textIndent: '0' });
+        details.querySelectorAll('a').forEach(function (link) {
+          applyStyles(link, { color: '#6f25bd', textDecoration: 'underline dotted', textUnderlineOffset: '4px' });
+        });
+      });
+      formatHistoryOutline(article);
+    }
 
     return article;
   }
@@ -367,9 +481,15 @@
     if (title) title.remove();
     var first = article.firstElementChild;
     if (first && first.tagName === 'P' && /^date\s*:/i.test(first.textContent.trim())) {
-      var separator = first.nextElementSibling;
-      first.remove();
-      if (separator && separator.tagName === 'HR') separator.remove();
+      if (isHistoryArticle(source)) {
+        // The page uses flex gaps; keep real separators when pasted without its CSS.
+        first.textContent = first.textContent.trim().replace(/\s*(总字数[：:]|预计阅读[：:])/g, '　$1');
+        first.style.textAlign = 'left';
+      } else {
+        var separator = first.nextElementSibling;
+        first.remove();
+        if (separator && separator.tagName === 'HR') separator.remove();
+      }
     }
     simplifyWechatBookInfo(article);
     inlineTextSizes(article, '16px');
