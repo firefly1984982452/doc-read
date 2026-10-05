@@ -294,7 +294,7 @@
       });
     });
     article.querySelectorAll('p').forEach(function (paragraph) {
-      var isMetadata = /^\s*date\s*:/i.test(paragraph.textContent);
+      var isMetadata = /^\s*(?:date\s*:|总字数[：:])/i.test(paragraph.textContent);
       var containsMedia = Boolean(paragraph.querySelector('img, svg, video, iframe'));
       applyStyles(paragraph, {
         color: isMetadata ? '#b2b2b2' : '#3f3f3f',
@@ -480,16 +480,10 @@
     var title = article.querySelector('h1');
     if (title) title.remove();
     var first = article.firstElementChild;
-    if (first && first.tagName === 'P' && /^date\s*:/i.test(first.textContent.trim())) {
-      if (isHistoryArticle(source)) {
-        // The page uses flex gaps; keep real separators when pasted without its CSS.
-        first.textContent = first.textContent.trim().replace(/\s*(总字数[：:]|预计阅读[：:])/g, '　$1');
-        first.style.textAlign = 'left';
-      } else {
-        var separator = first.nextElementSibling;
-        first.remove();
-        if (separator && separator.tagName === 'HR') separator.remove();
-      }
+    if (first && first.tagName === 'P' && /^(?:date\s*:|总字数[：:])/i.test(first.textContent.trim())) {
+      // The page uses flex gaps; preserve separators when pasted without its CSS.
+      first.textContent = first.textContent.trim().replace(/\s*(总字数[：:]|预计阅读[：:])/g, '　$1').trim();
+      first.style.textAlign = 'left';
     }
     simplifyWechatBookInfo(article);
     inlineTextSizes(article, '16px');

@@ -308,8 +308,8 @@ test('history episode metadata stays subtle on the page and only WeChat export o
     assert.equal((content.match(/总字数[：:]/g) || []).length, 1);
     assert.equal((content.match(/预计阅读[：:]/g) || []).length, 1);
   }
-  assert.equal(exported.otherArticleHasDate, false, 'another article still omits its top date');
-  assert.equal(exported.otherRouteHasDate, false, 'another route still omits its top date');
+  assert.equal(exported.otherArticleHasDate, true, 'another article retains its top date');
+  assert.equal(exported.otherRouteHasDate, true, 'another route retains its top date');
   assert.equal(exported.directDates, 0, 'all episode dates are absent from exported HTML');
   assert.equal((exported.payload.text.match(/^学习时间[：:]/gm) || []).length, 1, 'plain text retains only the deliberate quotation, not the 100 episode records');
   assert.doesNotMatch(exported.payload.text, /学习日期待核对|2021年10月31日|2011年11月2日/);
@@ -438,9 +438,12 @@ test('article copy includes folded content and reports clipboard denial', async 
   }, copied.html);
   assert.deepEqual(exported.paragraph, { fontSize: '16px', lineHeight: '1.75', color: 'rgb(63, 63, 63)' });
   assert.equal(exported.list, null, 'metadata lists are excluded from this article export');
-  assert.equal(exported.date, false);
-  assert.doesNotMatch(copied.text, /date\s*:/i);
-  assert.equal(await page.evaluate(html => new DOMParser().parseFromString(html, 'text/html').querySelector('article').firstElementChild.tagName, copied.html), 'H2', 'export begins with content, without date or leading divider');
+  assert.equal(exported.date, true);
+  const metadata = await page.locator('.article-reading-meta').textContent();
+  const expectedMetadata = metadata.trim().replace(/\s*(总字数[：:]|预计阅读[：:])/g, '　$1').trim();
+  assert.equal(copied.text.split('\n')[0], expectedMetadata);
+  assert.match(copied.text.split('\n')[0], /总字数[：:].+　预计阅读[：:]/);
+  assert.equal(await page.evaluate(html => new DOMParser().parseFromString(html, 'text/html').querySelector('article').firstElementChild.tagName, copied.html), 'P', 'export begins with the reading metadata');
   assert.equal(exported.caption.fontSize, '12px');
   assert.equal(exported.caption.color, 'rgb(178, 178, 178)');
   assert.equal(exported.h2.fontSize, '18px');
