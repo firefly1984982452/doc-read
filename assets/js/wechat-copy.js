@@ -107,6 +107,24 @@
     article.querySelectorAll('.article-title-row').forEach(unwrap);
 
     article.querySelectorAll('a.anchor').forEach(unwrap);
+    // Preserve the compact poem notes when CSS classes are stripped for copying.
+    article.querySelectorAll('.libai-poem-grid').forEach(function (grid) {
+      applyStyles(grid, { display: 'block', margin: '12px 0', textIndent: '0' });
+    });
+    article.querySelectorAll('.libai-poem-card').forEach(function (card) {
+      applyStyles(card, { display: 'inline-block', verticalAlign: 'top', width: '260px', maxWidth: '100%',
+        boxSizing: 'border-box', margin: '6px', padding: '13px 14px', background: '#fff9e9',
+        border: '1px solid #e9dbb7', borderRadius: '4px', color: '#494239', fontSize: '14px', lineHeight: '1.75', textIndent: '0' });
+    });
+    article.querySelectorAll('.libai-poem-title').forEach(function (title) {
+      applyStyles(title, { fontSize: '14px', fontWeight: '700', margin: '0 0 4px' });
+    });
+    article.querySelectorAll('.libai-poem-verse').forEach(function (verse) {
+      applyStyles(verse, { fontSize: '14px', lineHeight: '1.75', margin: '9px 0 0', textIndent: '0' });
+    });
+    article.querySelectorAll('.libai-poem-meta, .libai-poem-source, .libai-poem-guide').forEach(function (note) {
+      applyStyles(note, { color: '#776c5c', fontSize: '12px', lineHeight: '1.55', textIndent: '0' });
+    });
     if (options.excludeHistoryReflectionSection) {
       article.querySelectorAll(':scope > h2').forEach(function (heading) {
         if (heading.textContent.trim() !== '阅读总结与观后感') return;

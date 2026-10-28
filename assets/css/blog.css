@@ -932,6 +932,79 @@ body:not(.close) .content { left: var(--sidebar-width); }
   color: var(--accent);
   font-weight: 700;
 }
+/* Compact poem notes used beside the Li Bai timeline. */
+.markdown-section .libai-poem-guide {
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.65;
+  margin: .6rem 0 1rem;
+}
+.markdown-section .libai-poem-grid {
+  align-items: start;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 12px 0 22px;
+  padding-left: 2em;
+}
+.markdown-section .libai-poem-card {
+  --poem-paper: #fff9e9;
+  --poem-edge: #e9dbb7;
+  --poem-ink: #494239;
+  --poem-muted: #776c5c;
+  background: var(--poem-paper);
+  border: 1px solid var(--poem-edge);
+  border-top: 3px solid #d7bd7c;
+  border-radius: 3px 3px 9px 3px;
+  box-shadow: 1px 3px 8px rgba(72, 56, 27, .07);
+  color: var(--poem-ink);
+  flex: 0 1 260px;
+  font-size: 14px;
+  line-height: 1.75;
+  max-width: 100%;
+  min-width: 0;
+  padding: 13px 14px 11px;
+  text-indent: 0;
+}
+.markdown-section .libai-poem-card:nth-child(even) {
+  --poem-paper: #f0f6f1;
+  --poem-edge: #d4e3d7;
+  border-top-color: #a9c3af;
+}
+.markdown-section .libai-poem-title {
+  font-family: system-ui, "PingFang SC", sans-serif;
+  font-size: 14px;
+  font-weight: 650;
+  line-height: 1.5;
+  margin-bottom: 4px;
+}
+.markdown-section .libai-poem-meta,
+.markdown-section .libai-poem-source,
+.markdown-section .libai-poem-caption {
+  color: var(--poem-muted);
+  font-size: 12px;
+  line-height: 1.55;
+}
+.markdown-section .libai-poem-verse { margin-top: 9px; overflow-wrap: anywhere; }
+.markdown-section .libai-poem-verse > span { display: block; }
+.markdown-section .libai-poem-source { border-top: 1px dashed var(--poem-edge); margin-top: 10px; padding-top: 7px; }
+.markdown-section .libai-poem-source a { color: inherit; text-decoration-color: var(--poem-edge); }
+html[data-theme='dark'] .markdown-section .libai-poem-card {
+  --poem-paper: #302b23;
+  --poem-edge: #63553d;
+  --poem-ink: #eee5d5;
+  --poem-muted: #c1b39a;
+}
+html[data-theme='dark'] .markdown-section .libai-poem-card:nth-child(even) {
+  --poem-paper: #243129;
+  --poem-edge: #485c4e;
+}
+@media (max-width: 600px) {
+  .markdown-section .libai-poem-grid { padding-left: 0; }
+}
+@media print {
+  .markdown-section .libai-poem-card { break-inside: avoid; box-shadow: none; }
+}
 /* Keep per-episode viewing details secondary to the actual history notes. */
 .reading-note-page .markdown-section > p.history-study-time {
   color: var(--text-muted);
