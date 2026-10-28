@@ -72,6 +72,37 @@ test('parseYear rejects a reading record outside a month section', () => {
   );
 });
 
+test('partial readings count only the read words in annual data and book metadata', () => {
+  const parsed = parseYear([
+    '## 2026-10',
+    '- [① 📖《白痴》作者甲【10/50万，读完】](/docs/read/《白痴》.md)',
+    '- [② 📖《整本》作者乙【5万】](/docs/read/《整本》.md)',
+    '## 2026-9',
+    '- [① 📖《金字塔原理》作者丙【10/30万】](/docs/read/《金字塔原理》.md)',
+    '- [② 📖《另一整本》作者丁【19万】](/docs/read/《另一整本》.md)'
+  ].join('\n'), 2026);
+  assert.equal(parsed.entries, 4);
+  assert.equal(parsed.wordWan, 44);
+  assert.equal(parsed.wordEquation, '15+29=44万字');
+  assert.deepEqual(parsed.records.map((record) => record.wordWan), [10, 5, 10, 19]);
+  const books = buildBookMetadata([], [parsed]);
+  for (const title of ['《白痴》', '《金字塔原理》']) {
+    const book = books.find((item) => item.title === title);
+    assert.equal(book.wordWan, 10);
+    assert.equal(book.readings[0].wordWan, 10);
+  }
+});
+
+test('partial word counts allow decimal values and spaces without counting the denominator', () => {
+  const parsed = parseYear([
+    '## 2026-1',
+    '- [《部分》作者【 0.5 / 2.5 万字，停止阅读 】](/docs/read/《部分》.md)',
+    '- [《完整》作者【0.25万字】](/docs/read/《完整》.md)'
+  ].join('\n'), 2026);
+  assert.equal(parsed.wordWan, 0.75);
+  assert.deepEqual(parsed.records.map((record) => record.wordWan), [0.5, 0.25]);
+});
+
 test('buildBookMetadata merges note and annual metadata without duplication', () => {
   const notes = [{
     id: 'docs/read/《测试》',

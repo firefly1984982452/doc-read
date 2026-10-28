@@ -16,7 +16,7 @@
 
   function sumBookWords(nodes) {
     return Array.from(nodes || []).reduce(function (sum, node) {
-      var matches = String(node.textContent || '').matchAll(/【\s*(\d+(?:\.\d+)?)\s*万(?:字)?(?:[^】]*)】/g);
+      var matches = String(node.textContent || '').matchAll(/【\s*(\d+(?:\.\d+)?)(?:\s*\/\s*\d+(?:\.\d+)?)?\s*万(?:字)?(?:[^】]*)】/g);
       for (var match of matches) sum += Number(match[1]);
       return sum;
     }, 0);
@@ -52,12 +52,19 @@
     var article = global.document.querySelector('.markdown-section');
     if (!article) return;
     var heading = Array.from(article.querySelectorAll('h2')).find(function (element) {
-      return /^(?:总)?字数$/.test(element.textContent.trim());
+      return /^(?:总)?字数(?:\s*【\d+(?:\.\d+)?万字】)?$/.test(element.textContent.trim());
     });
     if (!heading) return;
 
     var equation = equationFromSections(sectionsFromArticle(article, routeMatch[1]));
     if (!equation) return;
+    var label = heading.querySelector('[data-year-word-total-label]');
+    if (!label) {
+      label = global.document.createElement('span');
+      label.setAttribute('data-year-word-total-label', '');
+      (heading.querySelector('a') || heading).appendChild(label);
+    }
+    label.textContent = '【' + equation.slice(equation.lastIndexOf('=') + 1) + '】';
     var total = article.querySelector('[data-year-word-total]');
     if (!total) {
       total = heading.nextElementSibling;

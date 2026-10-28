@@ -89,7 +89,7 @@ export function parseYear(markdown, year, libraryPreferences = new Map()) {
 
     months[currentMonth - 1] += 1;
     const label = recordMatch[1].replace(/[①②③④⑤⑥⑦⑧⑨⑩📖\u200b⭐️]/g, '').trim();
-    const bookWordMatch = label.match(/【\s*(\d+(?:\.\d+)?)\s*万(?:字)?(?:[^】]*)】/);
+    const bookWordMatch = label.match(/【\s*(\d+(?:\.\d+)?)(?:\s*\/\s*\d+(?:\.\d+)?)?\s*万(?:字)?(?:[^】]*)】/);
     const wordWan = bookWordMatch ? Number(bookWordMatch[1]) : null;
     if (wordWan !== null) wordMonths.get(currentMonth).books += wordWan;
 

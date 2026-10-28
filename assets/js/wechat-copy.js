@@ -9,6 +9,8 @@
   var zhihuButton = document.getElementById('zhihu-copy');
   var tools = document.getElementById('reading-tools');
   var toast = document.getElementById('wechat-copy-toast');
+  var READING_FONT = '"Noto Serif SC", "Source Han Serif SC", "Songti SC", STSong, serif';
+  var HEADING_FONT = 'system-ui, "PingFang SC", "Microsoft YaHei", sans-serif';
 
   function applyStyles(element, styles) {
     Object.keys(styles).forEach(function (property) {
@@ -83,6 +85,28 @@
     });
   }
 
+  // Measure verse lines independently of hidden folds, viewport size and long notes.
+  function poemCardWidth(card) {
+    var verse = card.querySelector('.libai-poem-verse');
+    if (!verse) return 180;
+    var measure = verse.cloneNode(true);
+    measure.removeAttribute('class');
+    measure.querySelectorAll('.libai-poem-ellipsis').forEach(function (ellipsis) {
+      ellipsis.replaceWith(document.createElement('br'));
+    });
+    applyStyles(measure, { position: 'fixed', left: '-10000px', top: '0', visibility: 'hidden',
+      pointerEvents: 'none', display: 'inline-block', width: 'max-content', minWidth: '0', maxWidth: 'none',
+      margin: '0', padding: '0', border: '0', fontFamily: READING_FONT, fontSize: '14px', fontWeight: '400',
+      letterSpacing: 'normal', wordSpacing: 'normal', textIndent: '0', whiteSpace: 'nowrap' });
+    document.body.appendChild(measure);
+    try {
+      // 28px padding + 2px border + a little room for fractional font metrics.
+      return Math.max(180, Math.ceil(measure.getBoundingClientRect().width) + 34);
+    } finally {
+      measure.remove();
+    }
+  }
+
   function prepareArticle(source, options) {
     options = options || {};
     var article = source.cloneNode(true);
@@ -107,23 +131,54 @@
     article.querySelectorAll('.article-title-row').forEach(unwrap);
 
     article.querySelectorAll('a.anchor').forEach(unwrap);
+    if (options.excludePoemSources) {
+      article.querySelectorAll('.libai-poem-source').forEach(function (source) { source.remove(); });
+    }
     // Preserve the compact poem notes when CSS classes are stripped for copying.
     article.querySelectorAll('.libai-poem-grid').forEach(function (grid) {
-      applyStyles(grid, { display: 'block', margin: '12px 0', textIndent: '0' });
-    });
-    article.querySelectorAll('.libai-poem-card').forEach(function (card) {
-      applyStyles(card, { display: 'inline-block', verticalAlign: 'top', width: '260px', maxWidth: '100%',
-        boxSizing: 'border-box', margin: '6px', padding: '13px 14px', background: '#fff9e9',
-        border: '1px solid #e9dbb7', borderRadius: '4px', color: '#494239', fontSize: '14px', lineHeight: '1.75', textIndent: '0' });
+      var paired = grid.classList.contains('libai-poem-pair');
+      // Inline blocks wrap without flex/grid CSS, which pasted editors may discard.
+      applyStyles(grid, { display: 'block', margin: '12px 0', textIndent: '0',
+        fontSize: '0', lineHeight: '0', textAlign: 'left', whiteSpace: 'normal',
+        letterSpacing: 'normal', wordSpacing: 'normal' });
+      grid.querySelectorAll('.libai-poem-card').forEach(function (card, index) {
+        var green = index % 2 === 1;
+        var edge = paired ? '#dfd0ee' : green ? '#d4e3d7' : '#e9dbb7';
+        // Use each poem's natural line width; let metadata and explanations wrap.
+        applyStyles(card, { display: 'inline-block', verticalAlign: 'top', width: poemCardWidth(card) + 'px', maxWidth: 'calc(100% - 12px)',
+          boxSizing: 'border-box', margin: '0 12px 12px 0', padding: '13px 14px', backgroundColor: paired ? '#f7f2fc' : green ? '#f0f6f1' : '#fff9e9',
+          border: '1px solid ' + edge, borderTop: '3px solid ' + (paired ? '#b69acc' : green ? '#a9c3af' : '#d7bd7c'),
+          borderRadius: '4px', color: '#494239', fontSize: '14px', lineHeight: '1.75', textAlign: 'left', textIndent: '0' });
+        card.querySelectorAll('.libai-poem-source').forEach(function (source) {
+          applyStyles(source, { borderTop: '1px dashed ' + edge, marginTop: '10px', paddingTop: '7px' });
+        });
+      });
     });
     article.querySelectorAll('.libai-poem-title').forEach(function (title) {
-      applyStyles(title, { fontSize: '14px', fontWeight: '700', margin: '0 0 4px' });
+      applyStyles(title, { fontFamily: 'system-ui, "PingFang SC", sans-serif', fontSize: '14px', fontWeight: '650', margin: '0 0 4px', textAlign: 'left' });
     });
     article.querySelectorAll('.libai-poem-verse').forEach(function (verse) {
-      applyStyles(verse, { fontSize: '14px', lineHeight: '1.75', margin: '9px 0 0', textIndent: '0' });
+      applyStyles(verse, { fontSize: '14px', lineHeight: '1.75', margin: '9px 0 0', textAlign: 'center', textIndent: '0',
+        letterSpacing: 'normal', wordSpacing: 'normal', wordBreak: 'normal', overflowWrap: 'break-word' });
+    });
+    article.querySelectorAll('.libai-poem-ellipsis').forEach(function (ellipsis) {
+      applyStyles(ellipsis, { display: 'block', fontSize: '12px', lineHeight: '1.25', color: '#776c5c', textAlign: 'center', textIndent: '0' });
+    });
+    article.querySelectorAll('.libai-poem-story').forEach(function (story) {
+      applyStyles(story, { borderLeft: '2px solid #c9b8d7', color: '#75677d',
+        fontFamily: 'system-ui, "PingFang SC", "Microsoft YaHei", sans-serif',
+        fontSize: '12px', fontWeight: '400', lineHeight: '1.65', marginTop: '10px', paddingLeft: '9px',
+        textAlign: 'left', textIndent: '0' });
     });
     article.querySelectorAll('.libai-poem-meta, .libai-poem-source, .libai-poem-guide').forEach(function (note) {
-      applyStyles(note, { color: '#776c5c', fontSize: '12px', lineHeight: '1.55', textIndent: '0' });
+      applyStyles(note, { color: '#776c5c', fontSize: '12px', lineHeight: '1.55', textAlign: 'left', textIndent: '0' });
+    });
+    // WeChat flattens DIV blocks on paste but preserves styled SECTION wrappers.
+    article.querySelectorAll('div[class^="libai-poem-"]').forEach(function (block) {
+      var section = document.createElement('section');
+      section.style.cssText = block.style.cssText;
+      while (block.firstChild) section.appendChild(block.firstChild);
+      block.replaceWith(section);
     });
     if (options.excludeHistoryReflectionSection) {
       article.querySelectorAll(':scope > h2').forEach(function (heading) {
@@ -234,7 +289,8 @@
     var isHistory = isHistoryArticle(source);
     var article = prepareArticle(source, {
       excludeHistoryMetadata: isHistory,
-      excludeHistoryReflectionSection: isHistory
+      excludeHistoryReflectionSection: isHistory,
+      excludePoemSources: true
     });
 
     article.querySelectorAll('img').forEach(function (image) {
@@ -248,10 +304,12 @@
     });
 
     applyStyles(article, {
-      background: '#ffffff',
+      // The paste-compatible outer SECTION supplies the grid paper background.
+      background: 'transparent',
       boxSizing: 'border-box',
       color: '#3f3f3f',
-      fontFamily: '-apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif',
+      fontFamily: READING_FONT,
+      fontWeight: '400',
       fontSize: '16px',
       lineHeight: '1.75',
       margin: '0 auto',
@@ -260,6 +318,9 @@
       wordBreak: 'break-word'
     });
 
+    article.querySelectorAll('h1, h2, h3, h4, h5, h6, th').forEach(function (heading) {
+      heading.style.fontFamily = HEADING_FONT;
+    });
     article.querySelectorAll('h1').forEach(function (heading) {
       applyStyles(heading, {
         borderBottom: '0',
@@ -286,7 +347,7 @@
     });
     article.querySelectorAll('h3').forEach(function (heading) {
       applyStyles(heading, {
-        color: '#3e3250',
+        color: '#34495e',
         fontSize: '16px',
         fontWeight: '700',
         lineHeight: '1.5',
@@ -304,7 +365,7 @@
     });
     article.querySelectorAll('h4, h5, h6').forEach(function (heading) {
       applyStyles(heading, {
-        color: '#6f25bd',
+        color: '#34495e',
         fontSize: '18px',
         fontWeight: '700',
         lineHeight: '1.55',
@@ -443,20 +504,24 @@
       .trim();
   }
 
-  // Editors may discard paragraph font-size during paste. Make text runs explicit.
-  function inlineTextSizes(element, inheritedSize) {
+  // Editors may discard container typography during paste. Preserve it on each text run.
+  function inlineTextTypography(element, inheritedSize, inheritedFamily, inheritedWeight) {
     var isBlock = /^(?:ARTICLE|SECTION|DIV|P|LI|H[1-6]|TH|TD|PRE)$/.test(element.tagName);
     var isCaption = element.tagName === 'SPAN' && element.style.fontSize === '12px' && element.style.textAlign === 'center';
     var size = (isBlock || isCaption) && element.style.fontSize ? element.style.fontSize : inheritedSize;
-    element.style.fontSize = size;
+    var family = element.style.fontFamily;
+    var weight = element.style.fontWeight;
+    if (!family || /^(inherit|unset)$/.test(family)) family = inheritedFamily;
+    if (!weight || /^(inherit|unset)$/.test(weight)) weight = inheritedWeight;
+    applyStyles(element, { fontSize: size, fontFamily: family, fontWeight: weight });
     Array.from(element.childNodes).forEach(function (node) {
       if (node.nodeType === 3 && node.nodeValue.trim()) {
         var run = document.createElement('span');
-        run.style.fontSize = size;
+        applyStyles(run, { fontSize: size, fontFamily: family, fontWeight: weight });
         node.parentNode.insertBefore(run, node);
         run.appendChild(node);
       } else if (node.nodeType === 1 && !/^(?:IMG|SVG|VIDEO|IFRAME|BR|HR)$/.test(node.tagName)) {
-        inlineTextSizes(node, size);
+        inlineTextTypography(node, size, family, weight);
       }
     });
   }
@@ -504,9 +569,9 @@
       first.style.textAlign = 'left';
     }
     simplifyWechatBookInfo(article);
-    inlineTextSizes(article, '16px');
+    inlineTextTypography(article, '16px', READING_FONT, '400');
     return {
-      html: '<section style="background:#ffffff;margin:0;padding:0;">' + article.outerHTML + '</section>',
+      html: '<section style="background-color:#ffffff;background-image:linear-gradient(rgba(112,75,145,.075) 1px,transparent 1px),linear-gradient(90deg,rgba(112,75,145,.075) 1px,transparent 1px);background-size:40px 40px;background-position:0 0;background-repeat:repeat;max-width:677px;margin:0 auto;padding:0;">' + article.outerHTML + '</section>',
       text: articlePlainText(article)
     };
   }

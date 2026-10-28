@@ -400,6 +400,438 @@ test('mobile sidebar navigation stays in the same tab and fits viewport', async 
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'no horizontal overflow');
 });
 
+test('Li Bai poem cards retain styling, fill available rows and wrap without site CSS', async t => {
+  const page = await pageFor(t, { width: 375, height: 844 });
+  await page.goto(origin + '/#/docs/read/' + encodeURIComponent('李长之《李白传》'));
+  await page.waitForFunction(() => window.DocReadArticleCopy &&
+    document.querySelectorAll('.markdown-section .libai-poem-card').length === 55 &&
+    document.querySelector('.article-reading-meta .history-reading-stats'));
+
+  const copied = await page.evaluate(() => {
+    const source = document.querySelector('.markdown-section');
+    const before = source.outerHTML;
+    const cards = Array.from(source.querySelectorAll('.libai-poem-card')).map(card => ({
+      title: card.querySelector('.libai-poem-title').textContent.trim(),
+      titleLinks: Array.from(card.querySelectorAll('.libai-poem-title a')).map(link => ({ text: link.textContent, href: link.getAttribute('href') })),
+      source: card.querySelector('.libai-poem-source').textContent.trim(),
+      sourceLinks: Array.from(card.querySelectorAll('.libai-poem-source a')).map(link => ({ text: link.textContent, href: link.getAttribute('href') })),
+      meta: card.querySelector('.libai-poem-meta').textContent.trim(),
+      verse: card.querySelector('.libai-poem-verse').textContent.trim(),
+      verseAlign: getComputedStyle(card.querySelector('.libai-poem-verse')).textAlign,
+      verseFont: getComputedStyle(card.querySelector('.libai-poem-verse')).fontFamily,
+      verseWeight: getComputedStyle(card.querySelector('.libai-poem-verse')).fontWeight,
+      story: card.querySelector('.libai-poem-story')?.textContent.trim() || '',
+      breaks: card.querySelectorAll('.libai-poem-verse br').length,
+      paired: !!card.closest('.libai-poem-pair')
+    }));
+    const payload = window.DocReadArticleCopy.buildWechatPayload(source);
+    const headingColors = Array.from(source.querySelectorAll('h3, h4')).map(heading => ({
+      text: heading.textContent.trim(), color: getComputedStyle(heading.querySelector('.anchor span') || heading).color,
+      font: getComputedStyle(heading).fontFamily, weight: getComputedStyle(heading).fontWeight
+    }));
+    const bodyParagraph = Array.from(source.querySelectorAll(':scope > p')).find(p => p.textContent.startsWith('① 727年前后'));
+    const bodyTypography = { text: bodyParagraph.textContent, font: getComputedStyle(bodyParagraph).fontFamily,
+      weight: getComputedStyle(bodyParagraph).fontWeight };
+    return { ...payload, cards, headingColors, bodyTypography, paperImage: getComputedStyle(source).backgroundImage,
+      unchanged: before === source.outerHTML,
+      documentWidth: document.documentElement.scrollWidth, viewportWidth: window.innerWidth };
+  });
+  assert.equal(copied.unchanged, true, 'exporting only transforms the clone, including tags, classes and fold state');
+  assert.ok(copied.documentWidth <= copied.viewportWidth, 'the reading page has no horizontal overflow at 375px');
+  assert.equal(copied.cards.length, 55);
+  assert.ok(copied.cards.every(card => card.source && card.sourceLinks.length), 'every original blog card retains its source footer and links');
+  assert.deepEqual(copied.cards.filter(card => card.paired).map(card => card.title), ['崔颢《黄鹤楼》', '李白《登金陵凤凰台》']);
+
+  // A separate document has no Docsify stylesheet: only the actual clipboard HTML can style these cards.
+  const preview = await pageFor(t, { width: 375, height: 844 });
+  await preview.setContent('<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body>' + copied.html + '</body></html>');
+  const rendered = await preview.evaluate(expected => {
+    const article = document.querySelector('article');
+    const sections = Array.from(article.querySelectorAll('section'));
+    const text = element => element.textContent.trim();
+    const cards = expected.map(item => {
+      const titles = sections.filter(element => !element.querySelector('section') && text(element) === item.title);
+      if (titles.length !== 1) throw new Error('Expected one exported title for ' + item.title + ', got ' + titles.length);
+      const title = titles[0];
+      const card = title.parentElement;
+      const meta = title.nextElementSibling;
+      const verse = meta.nextElementSibling;
+      const style = getComputedStyle(card);
+      const rect = card.getBoundingClientRect();
+      const verseStyle = getComputedStyle(verse);
+      const ellipses = Array.from(verse.querySelectorAll(':scope > span')).filter(element => text(element) === '……');
+      const story = item.story ? verse.nextElementSibling : null;
+      const storyStyle = story && getComputedStyle(story);
+      return {
+        title: text(title), tag: card.tagName, display: style.display, verticalAlign: style.verticalAlign,
+        titleLinks: Array.from(title.querySelectorAll('a')).map(link => ({ text: link.textContent, href: link.getAttribute('href') })),
+        width: rect.width, left: rect.left, right: rect.right,
+        background: style.backgroundColor, border: style.borderBottomWidth,
+        borderStyle: style.borderBottomStyle, topBorder: style.borderTopWidth,
+        edge: style.borderBottomColor, topEdge: style.borderTopColor,
+        titleSize: getComputedStyle(title).fontSize, titleWeight: getComputedStyle(title).fontWeight,
+        meta: text(meta), metaSize: getComputedStyle(meta).fontSize,
+        verse: text(verse), verseSize: verseStyle.fontSize, verseAlign: verseStyle.textAlign, indent: verseStyle.textIndent,
+        verseFont: verseStyle.fontFamily, verseWeight: verseStyle.fontWeight,
+        verseTextSizes: Array.from(verse.querySelectorAll('span')).filter(element => text(element) !== '……').map(element => getComputedStyle(element).fontSize),
+        story: story ? { text: text(story), size: storyStyle.fontSize, color: storyStyle.color, font: storyStyle.fontFamily,
+          align: storyStyle.textAlign, border: storyStyle.borderLeftWidth, padding: storyStyle.paddingLeft } : null,
+        breaks: verse.querySelectorAll('br').length,
+        ellipses: ellipses.map(element => ({ display: getComputedStyle(element).display, width: element.getBoundingClientRect().width,
+          size: getComputedStyle(element).fontSize, align: getComputedStyle(element).textAlign })),
+        sourceFooters: Array.from(card.children).filter(element => text(element) === item.source).length
+      };
+    });
+    const titleSet = new Set(expected.map(item => item.title));
+    const titleOrder = sections.filter(element => !element.querySelector('section') && titleSet.has(text(element))).map(text);
+    return { cards, titleOrder, text: article.textContent, styleSheets: document.styleSheets.length,
+      styles: document.querySelectorAll('style, link[rel="stylesheet"]').length,
+      cardClasses: document.querySelectorAll('.libai-poem-card').length,
+      documentWidth: document.documentElement.scrollWidth, viewportWidth: window.innerWidth };
+  }, copied.cards);
+  assert.equal(rendered.styleSheets, 0);
+  assert.equal(rendered.styles, 0, 'the preview cannot inherit site CSS');
+  assert.equal(rendered.cardClasses, 0, 'card presentation survives class sanitization');
+  assert.deepEqual(rendered.titleOrder, copied.cards.map(card => card.title), 'all poem cards keep their original reading order');
+  assert.ok(rendered.documentWidth <= rendered.viewportWidth, 'clipboard HTML has no horizontal overflow at 375px');
+
+  const paper = await preview.evaluate(() => {
+    const article = document.querySelector('article');
+    const outer = article.parentElement;
+    const style = getComputedStyle(outer);
+    return {
+      tag: outer.tagName, background: style.backgroundColor, image: style.backgroundImage, size: style.backgroundSize,
+      articleBackground: getComputedStyle(article).backgroundColor,
+      headingColors: Array.from(article.querySelectorAll('h3, h4')).map(heading => ({
+        text: heading.textContent.trim(), color: getComputedStyle(heading.querySelector('span') || heading).color,
+        font: getComputedStyle(heading).fontFamily, weight: getComputedStyle(heading).fontWeight
+      }))
+    };
+  });
+  assert.equal(paper.tag, 'SECTION', 'grid paper lives on the paste-compatible outer wrapper');
+  assert.equal(paper.background, 'rgb(255, 255, 255)');
+  assert.equal(paper.image, copied.paperImage, 'copy retains the blog grid pattern without external stylesheets');
+  assert.equal(paper.size, '40px 40px, 40px 40px');
+  assert.equal(paper.articleBackground, 'rgba(0, 0, 0, 0)', 'the article does not cover the grid paper');
+  assert.deepEqual(paper.headingColors, copied.headingColors, 'stage and numbered subheadings keep their visible blog colors');
+
+  for (const [index, card] of rendered.cards.entries()) {
+    const original = copied.cards[index];
+    assert.equal(card.tag, 'SECTION', card.title + ' uses a paste-compatible wrapper');
+    assert.equal(card.display, 'inline-block');
+    assert.equal(card.verticalAlign, 'top', 'cards on the same row align at the top');
+    assert.deepEqual(card.titleLinks, original.titleLinks, card.title + ' keeps its title links');
+    assert.ok(card.width > 120 && card.width <= 360, card.title + ' fits its content inside the mobile viewport');
+    assert.ok(card.left >= 0 && card.right <= 375, card.title + ' stays inside the narrow viewport');
+    assert.equal(card.border, '1px');
+    assert.equal(card.borderStyle, 'solid');
+    assert.equal(card.topBorder, '3px');
+    assert.ok(['rgb(255, 249, 233)', 'rgb(240, 246, 241)', 'rgb(247, 242, 252)'].includes(card.background), card.title + ' retains paper color');
+    assert.equal(card.titleSize, '14px');
+    assert.equal(card.titleWeight, '650');
+    assert.equal(card.meta, original.meta);
+    assert.equal(card.metaSize, '12px');
+    assert.equal(card.verse, original.verse, card.title + ' keeps the actual poem text');
+    assert.equal(card.verseSize, '14px');
+    assert.equal(original.verseAlign, 'center', card.title + ' centers verses on the blog');
+    assert.equal(card.verseAlign, 'center', card.title + ' centers verses in WeChat');
+    assert.equal(card.verseFont, original.verseFont, card.title + ' keeps the blog serif font');
+    assert.equal(card.verseWeight, original.verseWeight, card.title + ' keeps the blog regular weight');
+    assert.ok(card.verseTextSizes.length > 0 && card.verseTextSizes.every(size => size === '14px'), card.title + ' styles the poem text itself');
+    assert.ok(card.ellipses.every(item => item.align === 'center' && item.size === '12px'), card.title + ' keeps ellipses centered and small');
+    if (original.story) {
+      assert.equal(card.story.text, original.story, card.title + ' retains its explanation');
+      assert.equal(card.story.size, '12px');
+      assert.equal(card.story.color, 'rgb(117, 103, 125)');
+      assert.match(card.story.font, /sans-serif/);
+      assert.equal(card.story.align, 'left');
+      assert.equal(card.story.border, '2px');
+      assert.equal(card.story.padding, '9px');
+    }
+    assert.equal(card.indent, '0px');
+    assert.equal(card.breaks, original.breaks, card.title + ' keeps its line breaks');
+    assert.equal(card.sourceFooters, 0, card.title + ' omits only the source footer in the WeChat copy');
+    if (original.paired) {
+      assert.equal(card.background, 'rgb(247, 242, 252)');
+      assert.equal(card.edge, 'rgb(223, 208, 238)');
+      assert.equal(card.topEdge, 'rgb(182, 154, 204)', 'both comparison cards retain the matching purple treatment');
+    }
+  }
+
+  const shortNote = rendered.cards.find(card => card.title === '《峨眉山月歌》');
+  const longerNote = rendered.cards.find(card => card.title === '《渡荆门送别》');
+  assert.ok(shortNote.width + 10 < longerNote.width, 'shorter verses produce a narrower exported card');
+  assert.ok(new Set(rendered.cards.map(card => Math.round(card.width))).size >= 3, 'exported cards are no longer uniformly wide');
+
+  const excerpts = [
+    ['《蜀道难》', '……蜀道之难，难于上青天！……一夫当关，万夫莫开。……', '蚕丛及鱼凫'],
+    ['《将进酒》', '君不见黄河之水天上来，奔流到海不复回。……人生得意须尽欢，莫使金樽空对月。天生我材必有用，千金散尽还复来。……', '烹羊宰牛且为乐'],
+    ['《南陵别儿童入京》', '……仰天大笑出门去，我辈岂是蓬蒿人。', '白酒新熟山中归'],
+    ['《月下独酌·其一》', '花间一壶酒，独酌无相亲。举杯邀明月，对影成三人。……', '永结无情游'],
+    ['《行路难·其一》', '……停杯投箸不能食，拔剑四顾心茫然。……长风破浪会有时，直挂云帆济沧海。', '金樽清酒斗十千'],
+    ['《梦游天姥吟留别》', '……安能摧眉折腰事权贵，使我不得开心颜？', '海客谈瀛洲'],
+    ['《宣州谢朓楼饯别校书叔云》', '弃我去者，昨日之日不可留；乱我心者，今日之日多烦忧。……抽刀断水水更流，举杯消愁愁更愁。人生在世不称意，明朝散发弄扁舟。', '俱怀逸兴壮思飞']
+  ];
+  assert.equal(rendered.cards.filter(card => card.title.endsWith('· 节选')).length, copied.cards.filter(card => card.title.endsWith('· 节选')).length);
+  for (const [title, verse, omittedLine] of excerpts) {
+    const card = rendered.cards.find(card => card.title === title + ' · 节选');
+    assert.ok(card, title + ' remains an excerpt');
+    assert.equal(card.verse, verse, title + ' exports only the selected lines');
+    assert.ok(card.ellipses.length > 0 && card.ellipses.every(item => item.display === 'block' && item.width > 100), title + ' places ellipses on separate lines');
+    assert.ok(!rendered.text.includes(omittedLine), title + ' does not append the full poem elsewhere');
+  }
+  // Check actual line boxes: fitting the viewport alone misses a trailing orphan character.
+  for (const width of [320, 375, 414, 677, 1024]) {
+    await preview.setViewportSize({ width, height: 844 });
+    const layout = await preview.evaluate(() => {
+      document.body.style.letterSpacing = '2px'; // An editor's surrounding typography must not widen verses.
+      const title = Array.from(document.querySelectorAll('section')).find(element =>
+        !element.querySelector('section') && element.textContent.trim() === '《上李邕》');
+      const card = title.parentElement;
+      const verse = title.nextElementSibling.nextElementSibling;
+      const rect = card.getBoundingClientRect();
+      const article = document.querySelector('article');
+      const articleStyle = getComputedStyle(article);
+      return {
+        width: rect.width, left: rect.left, right: rect.right,
+        available: article.clientWidth - parseFloat(articleStyle.paddingLeft) - parseFloat(articleStyle.paddingRight),
+        lineCounts: Array.from(verse.children).filter(element => element.tagName === 'SPAN').map(element => {
+          const range = document.createRange();
+          range.selectNodeContents(element);
+          return new Set(Array.from(range.getClientRects()).filter(box => box.width > 0).map(box => box.top)).size;
+        }),
+        documentWidth: document.documentElement.scrollWidth
+      };
+    });
+    assert.ok(layout.width <= Math.min(layout.available, 360), 'card fits its content without exceeding the editor width at ' + width + 'px');
+    assert.deepEqual(layout.lineCounts, [1, 1, 1, 1], 'each couplet stays on one line at ' + width + 'px');
+    assert.ok(layout.left >= 0 && layout.right <= width && layout.documentWidth <= width, 'no overflow at ' + width + 'px');
+  }
+  // Adjacent ordinary groups share one flow; the comparison pair remains a separate group.
+  const blogGroups = await page.evaluate(() => {
+    const grids = Array.from(document.querySelectorAll('.libai-poem-grid'));
+    return {
+      adjacentOrdinary: grids.filter(grid => !grid.classList.contains('libai-poem-pair') &&
+        grid.nextElementSibling?.matches('.libai-poem-grid:not(.libai-poem-pair)')).length,
+      pairs: grids.filter(grid => grid.classList.contains('libai-poem-pair')).map(grid =>
+        Array.from(grid.querySelectorAll('.libai-poem-title')).map(title => title.textContent.trim()))
+    };
+  });
+  assert.equal(blogGroups.adjacentOrdinary, 0, 'adjacent ordinary card containers do not force an early row break');
+  assert.deepEqual(blogGroups.pairs, [['崔颢《黄鹤楼》', '李白《登金陵凤凰台》']], 'the related comparison pair stays grouped');
+  for (const width of [320, 375, 414, 677, 1024]) {
+    for (const [surface, target] of [['blog', page], ['wechat', preview]]) {
+      await target.setViewportSize({ width, height: 900 });
+      const flow = await target.evaluate(({ titles, surface }) => {
+        const article = document.querySelector(surface === 'blog' ? '.markdown-section' : 'article');
+        const titleSet = new Set(titles);
+        const titleNodes = surface === 'blog'
+          ? Array.from(article.querySelectorAll('.libai-poem-title'))
+          : Array.from(article.querySelectorAll('section')).filter(section => !section.querySelector('section') && titleSet.has(section.textContent.trim()));
+        const cards = titleNodes.map(title => title.parentElement);
+        const groupTitles = ['《赠汪伦》', '《侠客行》 · 节选', '《秋浦歌十七首·其十五》', '《长相思·其一》 · 节选'];
+        const groupCards = groupTitles.map(name => cards.find(card => titleNodes[cards.indexOf(card)].textContent.trim() === name));
+        const rect = card => { const box = card.getBoundingClientRect(); return { left: box.left, right: box.right, top: box.top, bottom: box.bottom, width: box.width }; };
+        return {
+          sameGroup: groupCards.every(card => card.parentElement === groupCards[0].parentElement),
+          group: groupCards.map(rect), cards: cards.map(rect),
+          titleOrder: titleNodes.map(title => title.textContent.trim()),
+          documentWidth: document.documentElement.scrollWidth
+        };
+      }, { titles: copied.cards.map(card => card.title), surface });
+      assert.deepEqual(flow.titleOrder, copied.cards.map(card => card.title), surface + ' preserves all card ordering at ' + width + 'px');
+      assert.equal(flow.sameGroup, true, surface + ' puts 赠汪伦 and subsequent poems in one flow');
+      assert.ok(flow.documentWidth <= width + 1 && flow.cards.every(card => card.left >= -1 && card.right <= width + 1),
+        surface + ' has no card or document horizontal overflow at ' + width + 'px');
+      if (width >= 677) {
+        assert.ok(Math.abs(flow.group[0].top - flow.group[1].top) < 1, surface + ' fills the first row with 赠汪伦 and 侠客行 at ' + width + 'px');
+        if (surface === 'wechat') assert.ok(Math.abs(flow.group[0].top - flow.group[2].top) < 1, 'three short cards fit the wide WeChat first row');
+      }
+      if (width <= 375) assert.ok(flow.group[1].top >= flow.group[0].bottom - 1, surface + ' naturally wraps the next poem on a narrow screen');
+      for (let i = 1; i < flow.group.length; i++) {
+        const previous = flow.group[i - 1], current = flow.group[i];
+        assert.ok(current.top >= previous.top - 1, surface + ' never reorders rows');
+        if (Math.abs(current.top - previous.top) < 1) assert.ok(current.left >= previous.right - 1, surface + ' lays out each row left to right without overlap');
+      }
+    }
+  }
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.locator('.libai-poem-title').filter({ hasText: '《赠汪伦》' }).evaluate(title => {
+    title.closest('.libai-poem-grid').scrollIntoView({ block: 'start', behavior: 'instant' });
+    window.scrollBy({ top: -100, behavior: 'instant' });
+  });
+  await screenshot(page, 'libai-blog-continuous-poem-cards-desktop');
+  await preview.setViewportSize({ width: 677, height: 900 });
+  await preview.getByText('《赠汪伦》', { exact: true }).last().evaluate(title => {
+    title.closest('section').parentElement.parentElement.scrollIntoView({ block: 'start', behavior: 'instant' });
+    window.scrollBy({ top: -16, behavior: 'instant' });
+  });
+  await screenshot(preview, 'libai-wechat-continuous-poem-cards-desktop');
+  await preview.setViewportSize({ width: 375, height: 900 });
+  await preview.getByText('《赠汪伦》', { exact: true }).last().evaluate(title => {
+    title.closest('section').parentElement.parentElement.scrollIntoView({ block: 'start', behavior: 'instant' });
+    window.scrollBy({ top: -16, behavior: 'instant' });
+  });
+  await screenshot(preview, 'libai-wechat-continuous-poem-cards-wrapped');
+  const retainedSources = await page.locator('.libai-poem-card').evaluateAll(cards => cards.map(card => ({
+    source: card.querySelector('.libai-poem-source')?.textContent.trim(),
+    links: Array.from(card.querySelectorAll('.libai-poem-source a')).map(link => ({ text: link.textContent, href: link.getAttribute('href') }))
+  })));
+  assert.deepEqual(retainedSources, copied.cards.map(card => ({ source: card.source, links: card.sourceLinks })), 'exporting never removes source footers from the blog');
+  const blogCards = await page.locator('.libai-poem-card').evaluateAll(cards => cards.map(card => ({
+    title: card.querySelector('.libai-poem-title').textContent.trim(), width: card.getBoundingClientRect().width
+  })));
+  assert.ok(blogCards.find(card => card.title === '《峨眉山月歌》').width + 10 < blogCards.find(card => card.title === '《渡荆门送别》').width,
+    'blog cards also size themselves to their content');
+  const noteSizing = await page.evaluate(() => {
+    const article = document.querySelector('.markdown-section');
+    const card = Array.from(article.querySelectorAll('.libai-poem-card')).find(card => card.querySelector('.libai-poem-title').textContent.includes('《赠孟浩然》'));
+    const original = card.innerHTML;
+    const verseText = card.querySelector('.libai-poem-verse').textContent.trim();
+    function measure() {
+      const html = window.DocReadArticleCopy.buildWechatPayload(article).html;
+      const doc = new DOMParser().parseFromString(html, 'text/html');
+      const verse = Array.from(doc.querySelectorAll('section')).find(section => section.textContent.trim() === verseText);
+      return { blog: card.getBoundingClientRect().width, copied: parseFloat(verse.parentElement.style.width) };
+    }
+    const before = measure();
+    card.querySelector('.libai-poem-title').textContent += '很长的补充标题'.repeat(10);
+    card.querySelector('.libai-poem-meta').textContent += '这里是很长的年代备注'.repeat(10);
+    const note = document.createElement('div');
+    note.className = 'libai-poem-story';
+    note.textContent = '这是一段用来检查换行的长备注，不能把诗卡撑宽。'.repeat(10);
+    card.appendChild(note);
+    const after = measure();
+    const wraps = note.getBoundingClientRect().height > 40 && note.scrollWidth <= note.clientWidth + 1;
+    card.innerHTML = original;
+    return { before, after, wraps };
+  });
+  assert.deepEqual(noteSizing.after, noteSizing.before, 'titles and notes do not determine card width on the blog or in the clipboard');
+  assert.ok(noteSizing.wraps, 'long notes wrap within the verse-sized card');
+  await page.getByText('《峨眉山月歌》', { exact: true }).last().scrollIntoViewIfNeeded();
+  await screenshot(page, 'libai-blog-content-width');
+  await page.getByText('《赠孟浩然》', { exact: true }).last().scrollIntoViewIfNeeded();
+  await screenshot(page, 'libai-blog-verse-width-notes');
+  await preview.setViewportSize({ width: 375, height: 844 });
+  await preview.evaluate(() => { document.body.style.letterSpacing = ''; });
+  await preview.getByText('《上李邕》', { exact: true }).last().scrollIntoViewIfNeeded();
+  await screenshot(preview, 'libai-wechat-poem-cards-mobile');
+  await preview.setViewportSize({ width: 677, height: 800 });
+  await preview.getByText('3. 在安陆成家，结识孟浩然', { exact: true }).scrollIntoViewIfNeeded();
+  await screenshot(preview, 'libai-wechat-grid-and-headings');
+
+  // Paste may discard typography on parent blocks; the text itself must still match the blog.
+  const pastedTypography = await preview.evaluate(expected => {
+    const article = document.querySelector('article');
+    article.querySelectorAll('*').forEach(element => {
+      if (element.tagName !== 'SPAN' || element.children.length) {
+        element.style.removeProperty('font-family');
+        element.style.removeProperty('font-weight');
+      }
+    });
+    article.style.fontFamily = 'sans-serif';
+    article.style.fontWeight = '900';
+    const paragraph = Array.from(article.querySelectorAll('p')).find(p => p.textContent === expected.text);
+    const typography = element => ({ font: getComputedStyle(element).fontFamily, weight: getComputedStyle(element).fontWeight });
+    return {
+      body: Array.from(paragraph.querySelectorAll('span')).filter(span => span.childNodes.length === 1 && span.firstChild.nodeType === 3).map(typography),
+      emphasis: Array.from(article.querySelectorAll('strong span, b span')).map(typography)
+    };
+  }, copied.bodyTypography);
+  assert.ok(pastedTypography.body.length > 1, 'checks both ordinary text and the inline poem link');
+  assert.ok(pastedTypography.body.every(style => style.font === copied.bodyTypography.font && style.weight === copied.bodyTypography.weight),
+    'body text and links retain the blog font and regular weight even when parent styles are lost');
+  assert.ok(pastedTypography.emphasis.length > 0 && pastedTypography.emphasis.every(style => style.weight === '700'), 'intentional emphasis stays bold');
+});
+
+test('Li Bai poem grids follow their H2 fold state while WeChat copying retains hidden poems', async t => {
+  const page = await pageFor(t, { width: 375, height: 844 });
+  await page.goto(origin + '/#/docs/read/' + encodeURIComponent('李长之《李白传》'));
+  await page.waitForFunction(() => window.DocReadSectionFold && window.DocReadArticleCopy &&
+    document.querySelectorAll('.markdown-section .libai-poem-card').length === 55 &&
+    document.querySelector('.markdown-section h2 .section-fold-toggle'));
+  const source = await page.evaluate(() => {
+    const article = document.querySelector('.markdown-section');
+    const headings = Array.from(article.querySelectorAll(':scope > h2'));
+    const owners = Array.from(article.querySelectorAll('.libai-poem-grid')).map(grid => {
+      let node = grid;
+      while (node.parentElement !== article) node = node.parentElement;
+      while (node && node.tagName !== 'H2') node = node.previousElementSibling;
+      if (!node?.querySelector('.section-fold-toggle')) throw new Error('Poem grid has no foldable H2 owner');
+      return headings.indexOf(node);
+    });
+    return {
+      owners: Array.from(new Set(owners)),
+      poems: Array.from(article.querySelectorAll('.libai-poem-card')).map(card => ({
+        title: card.querySelector('.libai-poem-title').textContent.trim(),
+        verse: card.querySelector('.libai-poem-verse').textContent.trim()
+      }))
+    };
+  });
+  assert.equal(source.poems.length, 55);
+  assert.ok(source.owners.length > 0, 'find poem sections from their position, independent of section titles');
+
+  for (const index of source.owners) {
+    const heading = page.locator('.markdown-section > h2').nth(index);
+    await heading.locator('.section-fold-toggle').click();
+    await page.waitForFunction(index => {
+      let node = document.querySelectorAll('.markdown-section > h2')[index].nextElementSibling;
+      while (node && !/^H[12]$/.test(node.tagName)) {
+        if (!node.hidden) return false;
+        node = node.nextElementSibling;
+      }
+      return true;
+    }, index);
+    const folded = await heading.evaluate(heading => {
+      const grids = [];
+      let node = heading.nextElementSibling;
+      while (node && !/^H[12]$/.test(node.tagName)) {
+        if (node.matches('.libai-poem-grid')) grids.push(node);
+        grids.push(...node.querySelectorAll('.libai-poem-grid'));
+        node = node.nextElementSibling;
+      }
+      return {
+        expanded: heading.querySelector('button').getAttribute('aria-expanded'),
+        displays: grids.map(grid => getComputedStyle(grid).display),
+        visiblePoems: grids.flatMap(grid => Array.from(grid.querySelectorAll('.libai-poem-card'))).filter(card => card.getClientRects().length > 0).length,
+        nextHeadingVisible: !node || node.getClientRects().length > 0
+      };
+    });
+    assert.equal(folded.expanded, 'false');
+    assert.ok(folded.displays.length > 0 && folded.displays.every(display => display === 'none'), 'hidden poem grids must override their flex layout');
+    assert.equal(folded.visiblePoems, 0, 'folding removes all poems in this section from layout');
+    assert.equal(folded.nextHeadingVisible, true, 'the following section heading stays visible');
+  }
+
+  const copied = await page.evaluate(() => {
+    const article = document.querySelector('.markdown-section');
+    const before = article.outerHTML;
+    const payload = window.DocReadArticleCopy.buildWechatPayload(article);
+    return { html: payload.html, unchanged: article.outerHTML === before };
+  });
+  assert.equal(copied.unchanged, true, 'copying keeps the original sections collapsed');
+  const preview = await pageFor(t, { width: 375, height: 844 });
+  await preview.setContent(copied.html);
+  const exported = await preview.evaluate(poems => {
+    const sections = Array.from(document.querySelectorAll('article section'));
+    return poems.map(poem => {
+      const title = sections.find(section => !section.querySelector('section') && section.textContent.trim() === poem.title);
+      const card = title?.parentElement;
+      return { title: poem.title, visible: !!card?.getClientRects().length,
+        verse: title?.nextElementSibling?.nextElementSibling?.textContent.trim() };
+    });
+  }, source.poems);
+  assert.equal(exported.length, 55);
+  for (const [index, poem] of exported.entries()) {
+    assert.equal(poem.visible, true, poem.title + ' is present and visible in the copied article');
+    assert.equal(poem.verse, source.poems[index].verse, poem.title + ' retains all its displayed lines');
+  }
+
+  for (const index of source.owners) await page.locator('.markdown-section > h2').nth(index).locator('.section-fold-toggle').click();
+  assert.equal(await page.locator('.libai-poem-grid').evaluateAll(grids => grids.every(grid => !grid.hidden && getComputedStyle(grid).display === 'flex')), true, 'expanding restores the original flex layout');
+  assert.equal(await page.locator('.libai-poem-card').evaluateAll(cards => cards.filter(card => card.getClientRects().length > 0).length), 55);
+});
+
 test('article copy includes folded content and reports clipboard denial', async t => {
   const page = await pageFor(t);
   await page.addInitScript(() => {

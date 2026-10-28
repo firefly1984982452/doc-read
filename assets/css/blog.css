@@ -865,6 +865,10 @@ body:not(.close) .content { left: var(--sidebar-width); }
 .section-fold-item { transition: opacity .15s ease, transform .15s ease; }
 .section-fold-item.is-fold-leaving { opacity: 0; pointer-events: none; transform: translateY(-7px); }
 .section-fold-item.is-fold-entering { opacity: 0; transform: translateY(-7px); }
+@media screen {
+  /* Explicit layouts such as flex must not override a collapsed section. */
+  .section-fold-item[hidden] { display: none !important; }
+}
 .markdown-section h3 {
   font-size: 1.32rem;
   margin: 3rem auto 1.7rem;
@@ -952,20 +956,33 @@ body:not(.close) .content { left: var(--sidebar-width); }
   --poem-edge: #e9dbb7;
   --poem-ink: #494239;
   --poem-muted: #776c5c;
+  --poem-story: #75677d;
+  --poem-story-edge: #c9b8d7;
   background: var(--poem-paper);
   border: 1px solid var(--poem-edge);
   border-top: 3px solid #d7bd7c;
   border-radius: 3px 3px 9px 3px;
   box-shadow: 1px 3px 8px rgba(72, 56, 27, .07);
   color: var(--poem-ink);
-  flex: 0 1 260px;
+  flex: 0 1 auto;
+  width: max-content;
   font-size: 14px;
   line-height: 1.75;
   max-width: 100%;
-  min-width: 0;
+  min-width: min(180px, 100%);
   padding: 13px 14px 11px;
+  text-align: left;
   text-indent: 0;
 }
+/* Only the verse sets the intrinsic card width; headings and notes wrap within it. */
+.markdown-section .libai-poem-card > :not(.libai-poem-verse) {
+  box-sizing: border-box;
+  width: 0;
+  min-width: 100%;
+  max-width: 100%;
+  overflow-wrap: break-word;
+}
+
 .markdown-section .libai-poem-card:nth-child(even) {
   --poem-paper: #f0f6f1;
   --poem-edge: #d4e3d7;
@@ -985,8 +1002,27 @@ body:not(.close) .content { left: var(--sidebar-width); }
   font-size: 12px;
   line-height: 1.55;
 }
-.markdown-section .libai-poem-verse { margin-top: 9px; overflow-wrap: anywhere; }
+.markdown-section .libai-poem-verse { margin-top: 9px; overflow-wrap: anywhere; text-align: center; text-indent: 0; }
 .markdown-section .libai-poem-verse > span { display: block; }
+.markdown-section .libai-poem-ellipsis { color: var(--poem-muted); display: block; font-size: 12px; line-height: 1.25; text-align: center; text-indent: 0; }
+.markdown-section .libai-poem-story {
+  border-left: 2px solid var(--poem-story-edge);
+  color: var(--poem-story);
+  font-family: system-ui, "PingFang SC", "Microsoft YaHei", sans-serif;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.65;
+  margin-top: 10px;
+  padding-left: 9px;
+  text-align: left;
+  text-indent: 0;
+}
+.markdown-section .libai-poem-pair .libai-poem-card {
+  --poem-paper: #f7f2fc;
+  --poem-edge: #dfd0ee;
+  border-top-color: #b69acc;
+}
+.markdown-section .libai-poem-pair .libai-poem-meta { color: var(--accent-strong); }
 .markdown-section .libai-poem-source { border-top: 1px dashed var(--poem-edge); margin-top: 10px; padding-top: 7px; }
 .markdown-section .libai-poem-source a { color: inherit; text-decoration-color: var(--poem-edge); }
 html[data-theme='dark'] .markdown-section .libai-poem-card {
@@ -994,10 +1030,16 @@ html[data-theme='dark'] .markdown-section .libai-poem-card {
   --poem-edge: #63553d;
   --poem-ink: #eee5d5;
   --poem-muted: #c1b39a;
+  --poem-story: #c2b5cd;
+  --poem-story-edge: #7f6b8f;
 }
 html[data-theme='dark'] .markdown-section .libai-poem-card:nth-child(even) {
   --poem-paper: #243129;
   --poem-edge: #485c4e;
+}
+html[data-theme='dark'] .markdown-section .libai-poem-pair .libai-poem-card {
+  --poem-paper: #30243a;
+  --poem-edge: #584566;
 }
 @media (max-width: 600px) {
   .markdown-section .libai-poem-grid { padding-left: 0; }

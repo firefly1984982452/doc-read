@@ -52,3 +52,19 @@ test('a month without a heading total falls back to its book word counts', async
     { explicitWan: 2.5, nodes: [] }
   ]), '11+2.5=13.5万字');
 });
+
+test('partial and complete readings share a month without counting full-book denominators', async () => {
+  const api = await loadYearTotal();
+  assert.equal(api.equationFromSections([
+    { explicitWan: null, nodes: [{ textContent: '《金字塔原理》【10/30万】 《整本》【5万】' }] },
+    { explicitWan: null, nodes: [{ textContent: '《白痴》【10/50万，读完】' }] }
+  ]), '15+10=25万字');
+});
+
+test('partial readings allow spaces and decimals while explicit month totals still take precedence', async () => {
+  const api = await loadYearTotal();
+  assert.equal(api.equationFromSections([
+    { explicitWan: null, nodes: [{ textContent: '《甲》【 0.5 / 2.5 万字，停止阅读 】 《乙》【 1.25 万 】' }] },
+    { explicitWan: 2, nodes: [{ textContent: '《丙》【90/100万】' }] }
+  ]), '1.75+2=3.75万字');
+});
