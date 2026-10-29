@@ -832,6 +832,102 @@ test('Li Bai poem grids follow their H2 fold state while WeChat copying retains 
   assert.equal(await page.locator('.libai-poem-card').evaluateAll(cards => cards.filter(card => card.getClientRects().length > 0).length), 55);
 });
 
+test('Idiot WeChat button preserves all heading colors and serif body after paste cleanup', async t => {
+  const page = await pageFor(t);
+  await page.addInitScript(() => {
+    window.testCopied = [];
+    document.execCommand = () => false;
+    Object.defineProperty(navigator, 'clipboard', { value: { write: async items => {
+      window.testCopied = await Promise.all(items.map(async item => ({
+        html: await (await item.getType('text/html')).text(), text: await (await item.getType('text/plain')).text()
+      })));
+    } } });
+  });
+  await page.goto(origin + '/#/docs/read/' + encodeURIComponent('陀思妥耶夫斯基《白痴》'));
+  await page.locator('#wechat-copy').waitFor({ state: 'visible' });
+  await page.waitForFunction(() => document.querySelector('.article-reading-meta .history-reading-stats'));
+  const headingText = '① 关于我决定弃读';
+  const expected = await page.evaluate(text => {
+    const heading = Array.from(document.querySelectorAll('.markdown-section h4')).find(element => element.textContent.trim() === text);
+    const paragraph = heading.nextElementSibling;
+    const bodyStyle = getComputedStyle(paragraph);
+    return {
+      headingText: text, headingColor: getComputedStyle(heading.querySelector('.anchor span') || heading).color,
+      headingFont: getComputedStyle(heading).fontFamily, headingWeight: getComputedStyle(heading).fontWeight,
+      bodyText: paragraph.textContent.trim(), bodyColor: bodyStyle.color, bodyFont: bodyStyle.fontFamily,
+      bodyWeight: bodyStyle.fontWeight, bodySize: bodyStyle.fontSize, bodyIndent: bodyStyle.textIndent
+    };
+  }, headingText);
+  assert.equal(expected.headingColor, 'rgb(52, 73, 94)', 'the real reflection heading is dark blue-gray on the blog');
+  assert.equal(expected.bodyColor, 'rgb(63, 63, 63)');
+  assert.match(expected.bodyFont, /"Songti SC"/);
+  assert.equal(expected.bodyWeight, '400');
+  assert.equal(expected.bodySize, '16px');
+  assert.equal(expected.bodyIndent, '32px');
+
+  await page.locator('#wechat-copy').click();
+  await page.waitForFunction(() => window.testCopied.length > 0);
+  await page.waitForFunction(() => document.getElementById('wechat-copy-toast').textContent.includes('已复制公众号富文本'));
+  const copied = await page.evaluate(() => window.testCopied[0]);
+  assert.ok(copied.text.includes(expected.bodyText), 'the actual copy button includes the original reflection');
+
+  // Only clipboard HTML supplies styling in this separate document.
+  const preview = await pageFor(t, { width: 900, height: 700 });
+  await preview.setContent('<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body>' + copied.html + '</body></html>');
+  const inspect = async clean => preview.evaluate(({ expected, clean }) => {
+    const article = document.querySelector('article');
+    const leafSpans = element => Array.from(element.querySelectorAll('span')).filter(span =>
+      span.childNodes.length === 1 && span.firstChild.nodeType === 3 && span.textContent.trim());
+    if (clean) {
+      // Model a paste sanitizer discarding typography everywhere except actual text spans.
+      document.querySelectorAll('*').forEach(element => {
+        const isTextSpan = element.tagName === 'SPAN' && element.childNodes.length === 1 && element.firstChild.nodeType === 3;
+        if (!isTextSpan) ['color', 'font-family', 'font-weight'].forEach(property => element.style.removeProperty(property));
+      });
+      document.body.style.color = '#ff00ff';
+      document.body.style.fontFamily = 'sans-serif';
+      document.body.style.fontWeight = '900';
+    }
+    const typography = element => {
+      const style = getComputedStyle(element);
+      return { color: style.color, font: style.fontFamily, weight: style.fontWeight, size: style.fontSize };
+    };
+    const headings = Array.from(article.querySelectorAll('h2, h3, h4')).map(heading => ({
+      tag: heading.tagName, text: heading.textContent.trim(), visible: !!heading.getClientRects().length,
+      runs: leafSpans(heading).map(typography)
+    }));
+    const heading = Array.from(article.querySelectorAll('h4')).find(element => element.textContent.trim() === expected.headingText);
+    const paragraph = heading.nextElementSibling;
+    return {
+      headings, bodyText: paragraph.textContent.trim(), bodyVisible: !!paragraph.getClientRects().length,
+      bodyIndent: getComputedStyle(paragraph).textIndent, bodyRuns: leafSpans(paragraph).map(typography)
+    };
+  }, { expected, clean });
+  const before = await inspect(false);
+  assert.deepEqual([...new Set(before.headings.map(heading => heading.tag))].sort(), ['H2', 'H3', 'H4']);
+  for (const heading of before.headings) {
+    assert.equal(heading.visible, true, heading.text + ' is visible in the exported article');
+    assert.ok(heading.runs.length > 0, heading.text + ' has actual styled text runs');
+    const expectedColor = heading.tag === 'H2' ? 'rgb(132, 38, 236)' : 'rgb(52, 73, 94)';
+    assert.ok(heading.runs.every(run => run.color === expectedColor && run.font === expected.headingFont && run.weight === expected.headingWeight),
+      heading.text + ' retains the shared heading colors and typography');
+    if (heading.tag === 'H4') {
+      assert.ok(heading.runs.every(run => run.size === '16.8px'), heading.text + ' keeps the blog 16.8px size on the copied text');
+    }
+  }
+  assert.equal(before.bodyText, expected.bodyText);
+  assert.equal(before.bodyVisible, true);
+  assert.equal(before.bodyIndent, expected.bodyIndent, 'ordinary paragraphs retain the two-character indent');
+  assert.ok(before.bodyRuns.length > 0);
+  assert.ok(before.bodyRuns.every(run => run.color === expected.bodyColor && run.font === expected.bodyFont &&
+    run.weight === expected.bodyWeight && run.size === expected.bodySize), 'the reflection body matches the blog serif typography');
+  await preview.getByRole('heading', { name: headingText, exact: true }).evaluate(element => element.scrollIntoView({ block: 'start' }));
+  await screenshot(preview, 'idiot-wechat-typography');
+
+  const after = await inspect(true);
+  assert.deepEqual(after, before, 'all H2/H3/H4 text and the reflection body keep their colors and fonts when parent styles are removed');
+});
+
 test('article copy includes folded content and reports clipboard denial', async t => {
   const page = await pageFor(t);
   await page.addInitScript(() => {

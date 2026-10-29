@@ -366,7 +366,7 @@
     article.querySelectorAll('h4, h5, h6').forEach(function (heading) {
       applyStyles(heading, {
         color: '#34495e',
-        fontSize: '18px',
+        fontSize: heading.tagName === 'H4' ? '16.8px' : '18px',
         fontWeight: '700',
         lineHeight: '1.55',
         margin: '28px 0 14px'
@@ -504,24 +504,26 @@
       .trim();
   }
 
-  // Editors may discard container typography during paste. Preserve it on each text run.
-  function inlineTextTypography(element, inheritedSize, inheritedFamily, inheritedWeight) {
+  // Editors may discard container styles during paste. Preserve typography and color on each text run.
+  function inlineTextTypography(element, inheritedSize, inheritedFamily, inheritedWeight, inheritedColor) {
     var isBlock = /^(?:ARTICLE|SECTION|DIV|P|LI|H[1-6]|TH|TD|PRE)$/.test(element.tagName);
     var isCaption = element.tagName === 'SPAN' && element.style.fontSize === '12px' && element.style.textAlign === 'center';
     var size = (isBlock || isCaption) && element.style.fontSize ? element.style.fontSize : inheritedSize;
     var family = element.style.fontFamily;
     var weight = element.style.fontWeight;
+    var color = element.style.color;
     if (!family || /^(inherit|unset)$/.test(family)) family = inheritedFamily;
     if (!weight || /^(inherit|unset)$/.test(weight)) weight = inheritedWeight;
-    applyStyles(element, { fontSize: size, fontFamily: family, fontWeight: weight });
+    if (!color || /^(inherit|unset)$/.test(color)) color = inheritedColor;
+    applyStyles(element, { fontSize: size, fontFamily: family, fontWeight: weight, color: color });
     Array.from(element.childNodes).forEach(function (node) {
       if (node.nodeType === 3 && node.nodeValue.trim()) {
         var run = document.createElement('span');
-        applyStyles(run, { fontSize: size, fontFamily: family, fontWeight: weight });
+        applyStyles(run, { fontSize: size, fontFamily: family, fontWeight: weight, color: color });
         node.parentNode.insertBefore(run, node);
         run.appendChild(node);
       } else if (node.nodeType === 1 && !/^(?:IMG|SVG|VIDEO|IFRAME|BR|HR)$/.test(node.tagName)) {
-        inlineTextTypography(node, size, family, weight);
+        inlineTextTypography(node, size, family, weight, color);
       }
     });
   }
@@ -569,7 +571,7 @@
       first.style.textAlign = 'left';
     }
     simplifyWechatBookInfo(article);
-    inlineTextTypography(article, '16px', READING_FONT, '400');
+    inlineTextTypography(article, '16px', READING_FONT, '400', article.style.color);
     return {
       html: '<section style="background-color:#ffffff;background-image:linear-gradient(rgba(112,75,145,.075) 1px,transparent 1px),linear-gradient(90deg,rgba(112,75,145,.075) 1px,transparent 1px);background-size:40px 40px;background-position:0 0;background-repeat:repeat;max-width:677px;margin:0 auto;padding:0;">' + article.outerHTML + '</section>',
       text: articlePlainText(article)
@@ -741,7 +743,7 @@
   bindCopyButton(
     wechatButton,
     buildWechatPayload,
-    '已复制紫色富文本，打开公众号编辑器直接粘贴即可。'
+    '已复制公众号富文本，打开公众号编辑器直接粘贴即可。'
   );
   function zhihuRequest(id, payload) {
     var local = location.protocol === 'file:';
