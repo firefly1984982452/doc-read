@@ -16,6 +16,7 @@ test('Xiaohongshu screenshot export uses the complete article title', () => {
 ## 三、书摘
 `;
   assert.equal(extractArticleTitle(markdown), '岸见一郎《被讨厌的勇气》思维导图、书摘、读后感');
+  assert.equal(extractArticleTitle('# 原标题 | 问题式副标题'), '原标题 | 问题式副标题');
 });
 
 test('Xiaohongshu helper exports only 1080x1440 screenshots into the article folder', async () => {

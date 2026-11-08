@@ -6,7 +6,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright-core';
 import { extractArticleTitle, planScreenshotPositions, safeFolderName } from './lib/xhs-export.mjs';
-import { sendZhihuDraft } from './lib/zhihu-draft.mjs';
+import { sendZhihuDraft, zhihuArticleTitle } from './lib/zhihu-draft.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const writableRoots = [path.join(root, 'docs/read'), path.join(root, 'docs/read-history')];
@@ -319,7 +319,8 @@ async function runJob(job, body) {
   try {
     updateJob(job, { status: 'running', stage: '正在读取文章…', progress: 3 });
     const { markdown } = await readableMarkdown(body.path);
-    const title = extractArticleTitle(markdown, path.basename(body.path, '.md'));
+    const fullTitle = extractArticleTitle(markdown, path.basename(body.path, '.md'));
+    const title = body.target === 'zhihu' ? zhihuArticleTitle(fullTitle) : fullTitle;
     if (body.target === 'zhihu') {
       const browser = await chromium.launch({ executablePath: await chromeExecutable(), headless: true, args: ['--allow-file-access-from-files'] });
       let payload;

@@ -999,3 +999,128 @@ test('article copy includes folded content and reports clipboard denial', async 
   await page.locator('#wechat-copy').click();
   await page.waitForFunction(() => document.getElementById('wechat-copy-toast').textContent.includes('权限'));
 });
+
+test('Zhihu export compacts images and groups excerpts without losing content', async t => {
+  const page = await pageFor(t);
+  const filename = '赫尔曼·黑塞《德米安》';
+  await page.goto(origin + '/#/docs/read/' + encodeURIComponent(filename));
+  await page.waitForFunction(() => window.DocReadArticleCopy && window.marked);
+  await page.locator('.article-reading-meta').waitFor();
+  const result = await page.evaluate(async filename => {
+    const markdown = await (await fetch('/docs/read/' + encodeURIComponent(filename) + '.md')).text();
+    const source = document.createElement('article');
+    source.innerHTML = window.marked(markdown.replace(/^# .+\r?\n/, ''));
+    const original = source.innerHTML;
+    const payload = window.DocReadArticleCopy.buildZhihuPayload(source);
+    const wechat = window.DocReadArticleCopy.buildWechatPayload(source);
+    const renderedSource = document.querySelector('.markdown-section');
+    const renderedOriginal = renderedSource.innerHTML;
+    const rendered = window.DocReadArticleCopy.buildZhihuPayload(renderedSource);
+    const renderedDoc = new DOMParser().parseFromString(rendered.html, 'text/html');
+    const exported = new DOMParser().parseFromString(payload.html, 'text/html');
+    const article = exported.querySelector('article');
+    const fixture = document.createElement('article');
+    fixture.innerHTML = `
+      <h1 title="主标题 | 副标题问句">主标题 | 副标题问句</h1>
+      <p class="article-reading-meta"><span>date: 2026-09-10</span><span class="history-reading-stats">总字数：100 字</span></p>
+      <h2>图片与正文</h2>
+      <p> </p><p><br></p><p>\u200b</p><hr>
+      <p> <img src="https://example.com/first.jpg" alt="第一图"> </p>
+      <p><img src="https://example.com/second.jpg" alt="第二图"></p>
+      <p>alpha <strong>beta</strong> gamma<br>delta</p>
+      <p> \t<span>　　<strong>　 已有缩进</strong></span>保留强调</p>
+      <p>正文日期：2026-09-10，应保留。</p><p>date: 2020-01-01 是正文里的日期说明。</p>
+      <p><img src="https://example.com/caption.jpg">图注仍在</p>
+      <ul><li><p>列表段落</p></li></ul>
+      <table><tbody><tr><td><p>表格段落</p></td></tr></tbody></table>
+      <p><code>代码段落</code></p>
+      <figure><figcaption><p>图注段落</p></figcaption></figure>
+      <p class="libai-poem-verse">诗歌首句<br>诗歌次句</p>
+      <pre>  first\n    second</pre>
+      <h3>第一章</h3><blockquote>甲 <em>乙</em></blockquote>
+      <blockquote>丙<br>丁</blockquote><h3>第二章</h3><blockquote><p>戊</p></blockquote>
+    `;
+    const fixtureOriginal = fixture.innerHTML;
+    const compact = window.DocReadArticleCopy.buildZhihuPayload(fixture);
+    const fixtureDoc = new DOMParser().parseFromString(compact.html, 'text/html');
+    return {
+      payload,
+      wechatText: wechat.text,
+      rendered,
+      renderedTitle: renderedDoc.querySelector('h1').textContent,
+      renderedTitleTooltip: renderedDoc.querySelector('h1').getAttribute('title'),
+      renderedUnchanged: renderedSource.innerHTML === renderedOriginal,
+      sourceUnchanged: source.innerHTML === original,
+      repeated: window.DocReadArticleCopy.buildZhihuPayload(source).html === payload.html,
+      imageCount: article.querySelectorAll('img').length,
+      directImages: article.querySelectorAll(':scope > img').length,
+      ordinaryParagraphs: Array.from(article.querySelectorAll(':scope > p')).map(p => p.textContent),
+      excerptParagraphs: Array.from(article.querySelectorAll('blockquote p')).map(p => p.textContent),
+      nativeHeadings: Array.from(article.querySelectorAll('h2, h3, h4, h5, h6')).map(h => ({
+        level: Number(h.tagName.slice(1)), text: h.textContent.trim()
+      })),
+      equationCount: article.querySelectorAll('.ztext-math, [data-eeimg], img[eeimg]').length,
+      emptyParagraphs: Array.from(article.querySelectorAll('p')).filter(p => !p.textContent.trim() && !p.querySelector('img')).length,
+      chapterExcerptCounts: Array.from(article.querySelectorAll('blockquote')).map(q => q.querySelectorAll('p').length),
+      compact,
+      fixtureTitle: fixtureDoc.querySelector('h1').textContent,
+      fixtureUnchanged: fixture.innerHTML === fixtureOriginal,
+      inlineText: fixtureDoc.querySelector('strong').parentElement.innerHTML,
+      preText: fixtureDoc.querySelector('pre').textContent,
+      fixtureImageCount: fixtureDoc.querySelectorAll('img').length,
+      retainedCaption: fixtureDoc.querySelector('img[src$="caption.jpg"]').parentElement.textContent,
+      normalizedIndent: Array.from(fixtureDoc.querySelectorAll('p')).find(p => p.textContent.includes('已有缩进')).textContent,
+      excludedParagraphs: Array.from(fixtureDoc.querySelectorAll('li p, td p, figcaption p, p:has(code)')).map(p => p.textContent),
+      verseParagraph: Array.from(fixtureDoc.querySelectorAll('p')).find(p => p.textContent.includes('诗歌首句')).textContent,
+      rootWhitespace: Array.from(fixtureDoc.querySelector('article').childNodes).filter(n => n.nodeType === 3 && !n.nodeValue.trim()).length,
+      quoteBreaks: fixtureDoc.querySelector('blockquote').querySelectorAll('br').length
+    };
+  }, filename);
+  assert.equal(result.sourceUnchanged, true);
+  assert.equal(result.repeated, true);
+  assert.match(result.payload.text, /一、书籍简介/);
+  assert.doesNotMatch(result.payload.text, /ISBN|9787201159096|1\. 书籍简介|2\. 书籍信息|3\. 阅读记录|一阅完成/);
+  assert.doesNotMatch(result.payload.text, /date: 2026-09-10/);
+  assert.match(result.wechatText, /date: 2026-09-10/);
+  assert.equal(result.renderedUnchanged, true);
+  assert.equal(result.renderedTitle, '赫尔曼·黑塞《德米安》思维导图、人物关系图、每章情节解析');
+  assert.equal(result.renderedTitleTooltip, null);
+  assert.doesNotMatch(result.rendered.text, /date: 2026-09-10|如果不再做别人眼中的好孩子，你会成为谁？/);
+  assert.match(result.payload.text, /确实不错，不过我还是看的云里雾里的，哲学精神还不够。/);
+  assert.equal(result.imageCount, 4);
+  assert.equal(result.directImages, 4);
+  assert.ok(result.ordinaryParagraphs.length > 10);
+  assert.ok(result.ordinaryParagraphs.every(text => /^\u3000{2}[^\s]/.test(text)), 'ordinary prose has exactly two full-width spaces');
+  assert.ok(result.excerptParagraphs.every(text => !/^\u3000/.test(text)), 'quoted excerpts remain unindented');
+  assert.equal(result.nativeHeadings.length, 23);
+  assert.equal(result.payload.headingColor, undefined);
+  assert.equal(result.payload.autoCatalog, true);
+  assert.equal(result.payload.headings.length, 23);
+  assert.doesNotMatch(result.payload.text, /\\color|\\textbf/);
+  assert.deepEqual(result.nativeHeadings, result.payload.headings);
+  assert.equal(result.equationCount, 0);
+  assert.doesNotMatch(result.payload.html, /\\color|\\textbf|ztext-math/);
+  assert.equal(result.emptyParagraphs, 0);
+  assert.equal(result.payload.quoteCount, 8);
+  assert.equal(result.payload.excerptCount, 15);
+  assert.deepEqual(result.chapterExcerptCounts, [2, 1, 1, 2, 4, 2, 2, 1]);
+  assert.doesNotMatch(result.payload.html, /\u200b|<hr\b/);
+  assert.equal(result.fixtureUnchanged, true);
+  assert.equal(result.fixtureTitle, '主标题');
+  assert.doesNotMatch(result.compact.text, /date: 2026-09-10|总字数：100 字|副标题问句/);
+  assert.match(result.compact.text, /正文日期：2026-09-10，应保留。/);
+  assert.match(result.compact.text, /date: 2020-01-01 是正文里的日期说明。/);
+  assert.equal(result.inlineText, '　　alpha <strong>beta</strong> gamma<br>delta');
+  assert.equal(result.normalizedIndent, '　　已有缩进保留强调');
+  assert.deepEqual(result.excludedParagraphs, ['列表段落', '表格段落', '代码段落', '图注段落']);
+  assert.equal(result.verseParagraph, '诗歌首句诗歌次句');
+  assert.equal(result.preText, '  first\n    second');
+  assert.equal(result.fixtureImageCount, 3);
+  assert.equal(result.retainedCaption, '图注仍在');
+  assert.equal(result.rootWhitespace, 0);
+  assert.equal(result.compact.quoteCount, 2);
+  assert.equal(result.compact.excerptCount, 3);
+  assert.equal(result.quoteBreaks, 2, 'raw quote text has a boundary break and keeps its explicit break');
+  assert.match(result.compact.text, /alpha beta gamma\ndelta/);
+  assert.doesNotMatch(result.compact.html, /\u200b|<hr\b/);
+});

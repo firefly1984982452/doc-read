@@ -110,6 +110,7 @@
   function prepareArticle(source, options) {
     options = options || {};
     var article = source.cloneNode(true);
+    if (options.indentZhihuParagraphs) indentZhihuParagraphs(article);
     // This must run on the clone before classes/data attributes are stripped.
     // Exact text matching also covers a copy before the async history mount finishes.
     if (options.excludeHistoryMetadata) {
@@ -473,7 +474,27 @@
   function zhihuArticle(source) {
     return prepareArticle(source, {
       cleanRoot: true,
-      stripInlineStyles: true
+      stripInlineStyles: true,
+      indentZhihuParagraphs: true
+    });
+  }
+
+  function indentZhihuParagraphs(article) {
+    // Identify captions and verse before prepareArticle removes their classes.
+    var excluded = 'blockquote, li, ul, ol, table, pre, code, figure, figcaption, h1, h2, h3, h4, h5, h6, ' +
+      '.article-reading-meta, .reading-date, .history-reading-stats, .reading-image-with-caption, .reading-image-caption, [class*="libai-poem-"]';
+    article.querySelectorAll('p').forEach(function (paragraph) {
+      if (paragraph.closest(excluded) || !paragraph.textContent.replace(/\u200b/g, '').trim() ||
+          paragraph.querySelector('img, svg, video, audio, iframe, code, .reading-image-caption, [class*="libai-poem-"]')) return;
+      // Normalize whitespace across leading inline spans without flattening
+      // links, emphasis, or explicit line breaks in the paragraph.
+      var walker = document.createTreeWalker(paragraph, 4);
+      var text;
+      while ((text = walker.nextNode())) {
+        text.nodeValue = text.nodeValue.replace(/^[\s\u200b]+/, '');
+        if (text.nodeValue) break;
+      }
+      paragraph.insertBefore(document.createTextNode('\u3000\u3000'), paragraph.firstChild);
     });
   }
 
@@ -528,7 +549,7 @@
     });
   }
 
-  // Keep bibliographic details in the source; simplify only the WeChat export.
+  // Keep bibliographic details in the source; simplify the platform exports.
   function simplifyWechatBookInfo(article) {
     function headingName(heading) {
       return heading.textContent.trim().replace(/^[一二三四五六七八九十百零〇0-9]+[\s、.．:：)）-]*\s*/, '');
@@ -578,16 +599,91 @@
     };
   }
 
+  function compactZhihuArticle(article) {
+    article.querySelectorAll('hr').forEach(function (rule) { rule.remove(); });
+    article.querySelectorAll('p').forEach(function (paragraph) {
+      if (paragraph.textContent.replace(/\u200b/g, '').trim()) return;
+      if (!paragraph.querySelector('img, svg, video, audio, iframe, object, embed, canvas, math, table, input, textarea')) {
+        paragraph.remove();
+        return;
+      }
+      // An image inside a paragraph becomes an image block plus an empty
+      // paragraph in Zhihu. Preserve mixed text/media and linked images.
+      if (Array.from(paragraph.childNodes).every(function (node) {
+        return node.nodeType === 3 ? !node.nodeValue.trim() : node.nodeType === 1 && node.tagName === 'IMG';
+      })) unwrap(paragraph);
+    });
+    // Only remove indentation between root blocks, never spaces between
+    // inline words or explicit line breaks inside prose and poems.
+    Array.from(article.childNodes).forEach(function (node) {
+      if (node.nodeType === 3 && !node.nodeValue.trim()) node.remove();
+    });
+    article.querySelectorAll('blockquote').forEach(function (quote) {
+      var next = quote.nextSibling;
+      while (next) {
+        if (next.nodeType === 8 || next.nodeType === 3 && !next.nodeValue.trim()) {
+          var whitespace = next;
+          next = next.nextSibling;
+          whitespace.remove();
+          continue;
+        }
+        if (next.nodeType !== 1 || next.tagName !== 'BLOCKQUOTE') break;
+        // Keep each excerpt's paragraph boundary. A chapter heading (or
+        // intervening prose) ends the group; no invisible spacer is needed.
+        var last = quote.lastElementChild;
+        var first = next.firstElementChild;
+        if (!last || !first || !/^(P|DIV|UL|OL|PRE|BLOCKQUOTE)$/.test(last.tagName) ||
+            !/^(P|DIV|UL|OL|PRE|BLOCKQUOTE)$/.test(first.tagName)) {
+          quote.appendChild(document.createElement('br'));
+        }
+        while (next.firstChild) quote.appendChild(next.firstChild);
+        var merged = next;
+        next = next.nextSibling;
+        merged.remove();
+      }
+    });
+  }
+
+  function zhihuHeadingTex(text) {
+    // Zhihu's MathJax text mode treats # % & _ ~ ^ literally; standard TeX
+    // escapes would display unwanted backslashes. Only braces and $ need
+    // escaping here. A literal backslash is emitted outside the text group.
+    var parts = String(text).replace(/\s+/g, ' ').split('\\').map(function (part) {
+      return '\\textbf{' + part.replace(/[{}$]/g, function (character) { return '\\' + character; }) + '}';
+    });
+    return '\\color{#8B22E8}{' + parts.join('\\unicode{x005C}') + '}';
+  }
+
   function buildZhihuPayload(source) {
     var article = zhihuArticle(source);
+    article.querySelectorAll('h1').forEach(function (heading) {
+      heading.textContent = heading.textContent.split(/[|｜]/, 1)[0].trim();
+      heading.removeAttribute('title');
+    });
+    // The rendered date row keeps its date: prefix after the site adds word
+    // statistics. Only omit this opening metadata paragraph, not body dates.
+    var first = article.firstElementChild;
+    if (first && first.tagName === 'H1') first = first.nextElementSibling;
+    if (first && first.tagName === 'P' && /^\s*date\s*:/i.test(first.textContent)) first.remove();
+    simplifyWechatBookInfo(article);
+    var excerpts = Array.from(article.querySelectorAll('blockquote')).map(articlePlainText);
+    compactZhihuArticle(article);
+    var quotes = Array.from(article.querySelectorAll('blockquote')).map(articlePlainText);
+    // Keep native text headings so Zhihu can generate a readable directory.
+    var text = articlePlainText(article);
+    var headings = Array.from(article.querySelectorAll('h2, h3, h4, h5, h6')).map(function (heading) {
+      return { level: Number(heading.tagName.slice(1)), text: heading.textContent.trim() };
+    });
     return {
-      // Draft.js merges adjacent quote blocks. A non-quote spacer keeps each
-      // original excerpt separate without adding visible text or dividers.
-      html: article.outerHTML.replace(/<\/blockquote>\s*(?=<blockquote\b)/gi, '</blockquote><p>\u200b</p>'),
-      text: articlePlainText(article),
+      html: article.outerHTML,
+      text: text,
+      headings: headings,
+      autoCatalog: true,
       imageAlts: Array.from(article.querySelectorAll('img')).map(function (image) { return image.getAttribute('alt') || ''; }),
-      quoteCount: article.querySelectorAll('blockquote').length,
-      quotes: Array.from(article.querySelectorAll('blockquote')).map(function (quote) { return quote.textContent || ''; })
+      quoteCount: quotes.length,
+      quotes: quotes,
+      excerptCount: excerpts.length,
+      excerpts: excerpts
     };
   }
 
@@ -734,6 +830,7 @@
     articlePlainText: articlePlainText,
     buildWechatPayload: buildWechatPayload,
     buildZhihuPayload: buildZhihuPayload,
+    zhihuHeadingTex: zhihuHeadingTex,
     prepareArticle: prepareArticle,
     publicAssetUrl: publicAssetUrl,
     publicUrl: publicUrl,

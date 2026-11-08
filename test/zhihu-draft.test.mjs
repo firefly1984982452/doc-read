@@ -2,7 +2,56 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import vm from 'node:vm';
-import { coverMatches, draftKey, missingTextLines, fillDraftTitle, verifyDraftTitle, checkDraftInPlace } from '../scripts/lib/zhihu-draft.mjs';
+import { coverMatches, draftKey, zhihuArticleTitle, savedDraftTitleMatches, savedHeadingStyleMatches, readDraftContentSnapshot, verifyDraftHeadings, missingTextLines, fillDraftTitle, verifyDraftTitle, verifyDraftQuotes, checkDraftInPlace } from '../scripts/lib/zhihu-draft.mjs';
+
+test('Zhihu titles omit the subtitle without treating saved full titles as new drafts', () => {
+  const full = '赫尔曼·黑塞《德米安》思维导图、人物关系图、每章情节解析 | 如果不再做别人眼中的好孩子，你会成为谁？';
+  const main = '赫尔曼·黑塞《德米安》思维导图、人物关系图、每章情节解析';
+  assert.equal(zhihuArticleTitle(full), main);
+  assert.equal(zhihuArticleTitle(full.replace('|', '｜')), main);
+  assert.equal(zhihuArticleTitle(main), main);
+  assert.equal(savedDraftTitleMatches(full, main, full), true, 'open the recorded draft without rewriting it');
+  assert.equal(savedDraftTitleMatches(main, main, full), true, 'reuse a draft already adjusted to its main title');
+  assert.equal(savedDraftTitleMatches('用户后来改的标题', main, full), false, 'do not overwrite an unrecorded user title');
+  assert.equal(savedHeadingStyleMatches(null, undefined), true, 'old and new native headings can reuse the same draft');
+  assert.equal(savedHeadingStyleMatches('#8B22E8', undefined), false, 'a native export must not rewrite an unfinished purple draft');
+  assert.equal(savedHeadingStyleMatches(undefined, '#8B22E8'), false, 'the reverse style change also requires explicit revision');
+  assert.equal(savedHeadingStyleMatches('#8B22E8', '#8B22E8'), true);
+});
+
+test('equation headings keep semantic text across editor spans and saved images', () => {
+  const expected = [
+    { level: 2, text: '一、书籍简介', tex: String.raw`\color{#8B22E8}{\textbf{一、书籍简介}}` },
+    { level: 3, text: '第一章：两个世界', tex: String.raw`\color{#8B22E8}{\textbf{第一章：两个世界}}` }
+  ];
+  for (const representation of ['span', 'image-alt', 'image-url']) {
+    const editor = { cloneNode() {
+      const headings = expected.map(item => {
+        const attributes = representation === 'span' ? { 'data-tex': item.tex } : representation === 'image-alt'
+          ? { eeimg: '1', alt: item.tex } : { eeimg: '1', src: '//www.zhihu.com/equation?tex=' + encodeURIComponent(item.tex) };
+        return { tagName: 'H' + item.level, textContent: '公式占位', querySelectorAll() {
+          return [{ getAttribute(name) { return attributes[name] || null; } }];
+        } };
+      });
+      return {
+        get textContent() { return headings.map(h => h.textContent).join('\n') + '\n正文内容'; },
+        querySelectorAll(selector) { return selector === 'blockquote' ? [{ textContent: '书摘' }] : headings; }
+      };
+    } };
+    const snapshot = readDraftContentSnapshot(editor, expected);
+    assert.deepEqual(snapshot.headings, expected);
+    assert.equal(snapshot.text, '一、书籍简介\n第一章：两个世界\n正文内容');
+    assert.deepEqual(snapshot.quotes, ['书摘']);
+    assert.doesNotThrow(() => verifyDraftHeadings({ headings: expected, headingColor: '#8B22E8' }, snapshot.headings));
+    assert.deepEqual(missingTextLines({ text: snapshot.text }, snapshot.text), []);
+  }
+  assert.throws(() => verifyDraftHeadings({ headings: expected, headingColor: '#8B22E8' }, expected.slice().reverse()), /标题层级/);
+  assert.throws(() => verifyDraftHeadings({ headings: expected, headingColor: '#8B22E8' }, expected.map(h => ({ ...h, tex: '' }))), /主题色/);
+  assert.throws(() => verifyDraftHeadings({ headings: expected }, expected.slice(1)), /标题层级/);
+  const native = expected.map(({ level, text }) => ({ level, text }));
+  assert.doesNotThrow(() => verifyDraftHeadings({ headings: native }, native.map(h => ({ ...h, tex: '' }))));
+  assert.throws(() => verifyDraftHeadings({ headings: native }, expected), /标题层级/);
+});
 
 test('title check stays in the existing editor with no navigation or refresh', async () => {
   const editor = { async $eval() { return '标题 | 副标题'; }, reload() { assert.fail('must not reload'); }, goto() { assert.fail('must not navigate'); } };
@@ -35,6 +84,21 @@ test('image alt text is not mistaken for lost body text, real missing text still
   const payload = { text: '正文\n思维导图\n未来不会被AI代替的12个技能\n另一条书摘', imageAlts: ['思维导图', '未来不会被AI代替的12个技能'] };
   assert.deepEqual(missingTextLines(payload, '正文\n\u200b\n另一条书摘'), []);
   assert.deepEqual(missingTextLines(payload, '正文'), ['另一条书摘']);
+});
+
+test('chapter quote groups retain every original excerpt in order', () => {
+  const payload = {
+    quoteCount: 2,
+    quotes: ['第一条\n\n第二条', '第三条'],
+    excerptCount: 3,
+    excerpts: ['第一条', '第二条', '第三条']
+  };
+  assert.doesNotThrow(() => verifyDraftQuotes(payload, ['第一条\n第二条', '第三条']));
+  assert.throws(() => verifyDraftQuotes(payload, ['第一条', '第二条', '第三条']), /分组校验/);
+  assert.throws(() => verifyDraftQuotes(payload, ['第二条\n第一条', '第三条']), /逐组校验/);
+  assert.throws(() => verifyDraftQuotes(payload, ['第一条', '第三条']), /逐组校验/);
+  assert.throws(() => verifyDraftQuotes({ excerpts: payload.excerpts }, ['第二条\n第一条', '第三条']), /逐条校验/);
+  assert.throws(() => verifyDraftQuotes({ excerpts: ['重复', '重复'] }, ['重复']), /逐条校验/);
 });
 
 test('cover matching uses full book name, tolerates filename punctuation and returns ambiguity', () => {

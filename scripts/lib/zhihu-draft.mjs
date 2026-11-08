@@ -14,12 +14,83 @@ export function draftKey(relative, markdown) {
   return createHash('sha256').update(relative + '\n' + markdown).digest('hex');
 }
 
+export function zhihuArticleTitle(title) {
+  return String(title || '').split(/[|｜]/, 1)[0].trim();
+}
+
+export function savedDraftTitleMatches(actual, requested, saved) {
+  return actual === requested || Boolean(saved) && actual === saved;
+}
+
+export function savedHeadingStyleMatches(savedColor, requestedColor) {
+  return (savedColor || null) === (requestedColor || null);
+}
+
+// Self-contained so Puppeteer can run it in the editor without importing code.
+// Zhihu stores an equation as a span while editing and as an eeimg when saved.
+export function readDraftContentSnapshot(editor, expectedHeadings = []) {
+  const clone = editor.cloneNode(true);
+  const headings = Array.from(clone.querySelectorAll('h2, h3, h4, h5, h6')).map(heading => {
+    const level = Number(heading.tagName.slice(1));
+    const nodes = Array.from(heading.querySelectorAll('[data-tex], img[eeimg="1"], img[data-eeimg="1"], img[src*="/equation"]'));
+    let tex = '';
+    for (const node of nodes) {
+      tex = node.getAttribute('data-tex') || node.getAttribute('alt') || '';
+      if (!tex && node.getAttribute('src')) {
+        try { tex = new URL(node.getAttribute('src'), 'https://www.zhihu.com').searchParams.get('tex') || ''; } catch { /* Unrecognized media. */ }
+      }
+      if (tex) break;
+    }
+    const expected = expectedHeadings.find(item => item.level === level && item.tex === tex);
+    if (expected) heading.textContent = expected.text;
+    return { level, tex, text: heading.textContent };
+  });
+  return {
+    text: clone.textContent,
+    headings,
+    quotes: Array.from(clone.querySelectorAll('blockquote')).map(quote => quote.textContent)
+  };
+}
+
+export function verifyDraftHeadings(payload, actualHeadings) {
+  if (!payload.headings) return;
+  const normalize = text => String(text).replace(/\s|\u200b/g, '');
+  if (actualHeadings.length !== payload.headings.length || payload.headings.some((expected, index) => {
+    const actual = actualHeadings[index];
+    return expected.level !== actual.level || normalize(expected.text) !== normalize(actual.text) ||
+      (payload.headingColor ? expected.tex !== actual.tex : Boolean(actual.tex));
+  })) throw new Error('标题层级、文字或主题色校验未通过，请检查已创建的知乎草稿');
+}
+
 export function missingTextLines(payload, actual) {
   const normalize = value => String(value).replace(/\s|\u200b/g, '');
   const imageAlts = new Set((payload.imageAlts || []).map(normalize));
   const text = normalize(actual);
   return payload.text.split('\n').map(s => normalize(s).replace(/^[-]/, ''))
     .filter(line => line && !imageAlts.has(line) && !text.includes(line));
+}
+
+export function verifyDraftQuotes(payload, actualQuotes) {
+  const normalize = text => String(text).replace(/\s|\u200b/g, '');
+  if (Number.isInteger(payload.quoteCount) && actualQuotes.length !== payload.quoteCount) {
+    throw new Error(`书摘分组校验未通过：应为 ${payload.quoteCount} 组引用，实际 ${actualQuotes.length} 组`);
+  }
+  if (payload.quotes?.some((quote, i) => normalize(quote) !== normalize(actualQuotes[i] || ''))) {
+    throw new Error('书摘逐组校验未通过，请检查草稿中的重复或缺失内容');
+  }
+  // Groups follow chapter boundaries, while these retain the original excerpt
+  // boundaries and catch omissions or reordered excerpts within each group.
+  if (payload.excerpts) {
+    const actual = actualQuotes.map(normalize).join('');
+    let position = 0;
+    for (const excerpt of payload.excerpts) {
+      const text = normalize(excerpt);
+      if (!text) continue;
+      const found = actual.indexOf(text, position);
+      if (found === -1) throw new Error('书摘逐条校验未通过，请检查草稿中的顺序或缺失内容');
+      position = found + text.length;
+    }
+  }
 }
 
 export async function fillDraftTitle(page, title) {
@@ -42,6 +113,7 @@ export function verifyDraftTitle(actual, expected) {
 }
 
 export async function sendZhihuDraft({ relative, markdown, payload, title, progress }) {
+  title = zhihuArticleTitle(title);
   const coverRoot = path.join(homedir(), 'Downloads/codex-图片生成/公众号图片');
   const names = coverMatches(title, await fs.readdir(coverRoot).catch(() => []));
   const stateRoot = path.join(homedir(), 'Library/Application Support/doc-read');
@@ -84,8 +156,13 @@ export async function sendZhihuDraft({ relative, markdown, payload, title, progr
     if (saved[key]?.formatVersion === 2 && saved[key]?.url && /^https:\/\/zhuanlan\.zhihu\.com\/p\/\d+\/edit$/.test(saved[key].url)) {
       await page.goto(saved[key].url, { waitUntil: 'domcontentloaded' });
       await page.waitForSelector('textarea');
-      if (await page.$eval('textarea', e => e.value) === title) {
+      const existingTitle = await page.$eval('textarea', e => e.value);
+      if (savedDraftTitleMatches(existingTitle, title, saved[key].title)) {
         if (saved[key].complete) return { draftUrl: saved[key].url, warning: '已打开这篇笔记之前生成的草稿，没有覆盖其后续编辑。' };
+        if (existingTitle !== title) return { draftUrl: saved[key].url, warning: '已打开此前的未完成草稿；标题格式已更新，请在原草稿中检查，没有自动改写。' };
+        if (!savedHeadingStyleMatches(saved[key].headingColor, payload.headingColor)) {
+          return { draftUrl: saved[key].url, warning: '已打开此前的未完成草稿；标题样式已更新，没有自动覆盖旧版排版。' };
+        }
         resume = true;
       } else {
         throw new Error('原草稿标题已被修改，请手动检查；没有覆盖内容');
@@ -106,12 +183,13 @@ export async function sendZhihuDraft({ relative, markdown, payload, title, progr
     }, payload);
     await page.waitForFunction(() => document.querySelector('[contenteditable="true"]')?.innerText.length > 20);
     }
-    await page.evaluate(() => {
-      if (document.querySelector('.Catalog-TitleIcon')) return;
+    const autoCatalog = payload.autoCatalog !== false;
+    await page.evaluate(enabled => {
+      if (Boolean(document.querySelector('.Catalog-TitleIcon')) === enabled) return;
       const button = document.querySelector('button[aria-label="目录"]');
       if (!button) throw new Error('未找到知乎目录按钮');
       button.click();
-    });
+    }, autoCatalog);
     let warning = '';
     let cover = names.length === 1 ? names[0] : '';
     if (names.length > 1) {
@@ -145,31 +223,30 @@ export async function sendZhihuDraft({ relative, markdown, payload, title, progr
     } else if (!cover && needsCover) warning = '没有选定匹配封面，请在知乎手动添加。';
     progress('等待图片转存及草稿保存…', 85);
     await page.waitForFunction(() => /\/p\/\d+\/edit/.test(location.pathname) && !document.body.innerText.includes('草稿保存中'), { timeout: 120_000 });
-    await page.waitForFunction(() => Array.from(document.querySelectorAll('[contenteditable="true"] img')).every(i => i.complete && i.naturalWidth > 0 && /zhihu|zhimg/.test(i.src)), { timeout: 120_000 });
+    // Equation headings render lazily; only body pictures require eager loading.
+    await page.waitForFunction(() => Array.from(document.querySelectorAll('[contenteditable="true"] img'))
+      .filter(i => !i.matches('[eeimg="1"], [data-eeimg="1"], [src*="/equation"]') && !i.closest('.ztext-math'))
+      .every(i => i.complete && i.naturalWidth > 0 && /zhihu|zhimg/.test(i.src)), { timeout: 120_000 });
     if (cover) {
       await page.waitForFunction(() => { const image = document.querySelector('img[alt="封面图"]'); return image?.complete && image.naturalWidth > 0; }, { timeout: 120_000 });
     }
     await checkDraftInPlace(page, title);
     await page.waitForSelector('[contenteditable="true"]');
     verifyDraftTitle(await page.$eval('textarea', e => e.value), title);
-    const actual = await page.$eval('[contenteditable="true"]', e => e.innerText);
-    if (missingTextLines(payload, actual).length) throw new Error('正文完整性校验未通过，请检查已创建的知乎草稿');
-    const actualQuotes = await page.$$eval('[contenteditable="true"] blockquote', items => items.length);
-    if (Number.isInteger(payload.quoteCount) && actualQuotes !== payload.quoteCount) throw new Error(`书摘分段校验未通过：应为 ${payload.quoteCount} 条引用，实际 ${actualQuotes} 条`);
-    if (payload.quotes) {
-      const quotes = await page.$$eval('[contenteditable="true"] blockquote', items => items.map(e => e.textContent));
-      const normalize = text => text.replace(/\s|\u200b/g, '');
-      if (payload.quotes.some((quote, i) => normalize(quote) !== normalize(quotes[i] || ''))) throw new Error('书摘逐条校验未通过，请检查草稿中的重复或缺失内容');
-    }
+    const snapshot = await page.$eval('[contenteditable="true"]', readDraftContentSnapshot, payload.headings || []);
+    verifyDraftHeadings(payload, snapshot.headings);
+    if (missingTextLines(payload, snapshot.text).length) throw new Error('正文完整性校验未通过，请检查已创建的知乎草稿');
+    verifyDraftQuotes(payload, snapshot.quotes);
     const imageCount = (payload.html.match(/<img\b/g) || []).length;
     await page.waitForFunction(count => {
-      const images = Array.from(document.querySelectorAll('[contenteditable="true"] img'));
+      const images = Array.from(document.querySelectorAll('[contenteditable="true"] img'))
+        .filter(i => !i.matches('[eeimg="1"], [data-eeimg="1"], [src*="/equation"]') && !i.closest('.ztext-math'));
       return images.length === count && images.every(i => i.complete && i.naturalWidth > 0);
     }, { timeout: 60_000 }, imageCount);
     const draftUrl = page.url();
-    if (!await page.$('.Catalog-TitleIcon')) throw new Error('目录保存校验未通过');
+    if (Boolean(await page.$('.Catalog-TitleIcon')) !== autoCatalog) throw new Error('目录保存校验未通过');
     if (cover) await page.waitForFunction(() => { const image = document.querySelector('img[alt="封面图"]'); return image?.complete && image.naturalWidth > 0; }, { timeout: 60_000 });
-    saved[key] = { url: draftUrl, title, complete: true, formatVersion: 2 };
+    saved[key] = { url: draftUrl, title, complete: true, formatVersion: 2, headingColor: payload.headingColor || null };
     await fs.mkdir(stateRoot, { recursive: true });
     await fs.writeFile(stateFile, JSON.stringify(saved, null, 2));
     return { draftUrl, warning: [warning, '请确认知乎显示草稿已保存后再关闭；本地助手不会刷新编辑页。'].filter(Boolean).join(' ') };
@@ -177,7 +254,7 @@ export async function sendZhihuDraft({ relative, markdown, payload, title, progr
     if (page && /^https:\/\/zhuanlan\.zhihu\.com\/p\/\d+\/edit$/.test(page.url())) {
       const matches = await page.$eval('textarea', e => e.value).then(value => value === title).catch(() => false);
       if (matches && (!saved[key]?.complete || saved[key]?.formatVersion !== 2)) {
-        saved[key] = { url: page.url(), title, complete: false, formatVersion: 2 };
+        saved[key] = { url: page.url(), title, complete: false, formatVersion: 2, headingColor: payload.headingColor || null };
         await fs.mkdir(stateRoot, { recursive: true });
         await fs.writeFile(stateFile, JSON.stringify(saved, null, 2));
       }

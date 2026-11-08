@@ -69,18 +69,15 @@ function textNode(value) {
   return { nodeType: 3, nodeValue: value };
 }
 
-test('Zhihu export separates adjacent excerpts without changing their text', async () => {
+test('Zhihu heading equations follow the verified MathJax text-mode escaping rules', async () => {
   const { api } = await loadCopy();
-  const article = mutableElement('article', {}, []);
-  article.outerHTML = '<article><blockquote><p>第一条</p></blockquote>\n<blockquote><p>第二条</p></blockquote></article>';
-  article.cloneNode = () => article;
-  article.querySelectorAll = selector => selector === 'blockquote' ? [{}, {}] : [];
-  const result = api.buildZhihuPayload(article);
-  assert.match(result.html, /<\/blockquote><p>\u200b<\/p><blockquote>/);
-  assert.equal(result.quoteCount, 2);
-  assert.match(result.html, /第一条/);
-  assert.match(result.html, /第二条/);
-  assert.doesNotMatch(result.html, /<hr/);
+  assert.equal(api.zhihuHeadingTex('一、书籍简介'), String.raw`\color{#8B22E8}{\textbf{一、书籍简介}}`);
+  assert.equal(
+    api.zhihuHeadingTex(String.raw`路径\文件 #100% & _ ~ ^ {正文} $`),
+    String.raw`\color{#8B22E8}{\textbf{路径}\unicode{x005C}\textbf{文件 #100% & _ ~ ^ \{正文\} \$}}`
+  );
+  assert.equal(api.zhihuHeadingTex(String.raw`\\`), String.raw`\color{#8B22E8}{\textbf{}\unicode{x005C}\textbf{}\unicode{x005C}\textbf{}}`);
+  assert.equal(api.zhihuHeadingTex('第一行\n第二行'), String.raw`\color{#8B22E8}{\textbf{第一行 第二行}}`);
 });
 
 test('public URLs replace local routes, anchors and assets with canonical URLs', async () => {
