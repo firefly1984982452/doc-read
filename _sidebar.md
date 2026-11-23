@@ -23,8 +23,11 @@
     - [习惯、学习与阅读](/docs/library.md?id=习惯、学习与阅读)
   - [完整索引](/docs/library.md?id=完整索引)
 
+- **纪录片**
+  - [中国通史](/docs/read-history/《中国通史》纪录片学习笔记.md)
+  - [世界通史](/docs/read-history/《世界通史》纪录片学习笔记.md)
+
 - **专题阅读**
-  - [《中国通史》纪录片学习笔记](/docs/read-history/《中国通史》纪录片学习笔记.md)
   - [《黄帝内经》](/docs/read/徐文兵、梁冬《黄帝内经》.md)
   - [《庄子》](/docs/read/庄周《庄子》.md)
   - [二十四史阅读记录](/docs/read-history/《二十四史》阅读记录.md)

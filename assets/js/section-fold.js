@@ -19,10 +19,10 @@
     return (clone.textContent || '本节').trim();
   }
 
-  function isWeChatCover(node) {
+  function isArticleCover(node) {
     if (node.tagName !== 'P' || node.childElementCount !== 1) return false;
     var image = node.querySelector(':scope > img, :scope > .reading-image-with-caption > img');
-    return Boolean(image && /^《[^》]+》微信公众号封面$/.test(image.getAttribute('alt') || ''));
+    return Boolean(image && /^《[^》]+》(微信公众号封面|纪录片学习笔记封面)$/.test(image.getAttribute('alt') || ''));
   }
 
   function sectionNodes(heading) {
@@ -33,8 +33,8 @@
       var currentLevel = headingLevel(current);
       if (currentLevel && currentLevel <= level) break;
       if (current.classList.contains('docsify-pagination-container') || current.classList.contains('pagination-item')) break;
-      // An article's WeChat cover sits outside the last foldable section.
-      if (isWeChatCover(current)) break;
+      // An article's cover sits outside the last foldable section.
+      if (isArticleCover(current)) break;
       nodes.push(current);
       current = current.nextElementSibling;
     }
@@ -50,7 +50,7 @@
     try { route = decodeURIComponent(route); } catch (error) { /* Keep malformed routes unchanged. */ }
     // Both Ruohua pages start as compact lists, regardless of old saved states.
     if (/^#\/docs\/other\/若华(?:阅读笔记|日记)(?:\.md)?$/.test(route)) return true;
-    if (/^#\/docs\/read-history\/《中国通史》纪录片学习笔记(?:\.md)?$/.test(route)) return true;
+    if (/^#\/docs\/read-history\/《(?:中国|世界)通史》纪录片学习笔记(?:\.md)?$/.test(route)) return true;
     try { return window.sessionStorage.getItem(key) === '1'; }
     catch (error) { return false; }
   }

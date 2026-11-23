@@ -1,13 +1,13 @@
 (function (global) {
   'use strict';
 
-  var notePath = 'docs/read-history/《中国通史》纪录片学习笔记.md';
+  var notePath = /^docs\/read-history\/《(?:中国|世界)通史》纪录片学习笔记\.md$/;
   var circledNumber = /^[①-⑳㉑-㉟㊱-㊿]/;
   var letterNumber = /^[a-zA-Z][).）．]/;
 
   function mount() {
     var source = global.DOC_READ_PAGE_SOURCE;
-    if (!source || source.path !== notePath) return;
+    if (!source || !notePath.test(source.path)) return;
     var article = global.document.querySelector('.markdown-section');
     if (!article) return;
 

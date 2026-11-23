@@ -92,7 +92,7 @@
       if (!event.defaultPrevented && event.target.closest('.dropdown-nav-menu a')) setExpanded(item, false);
     });
     link.addEventListener('click', function (event) {
-      if (!window.matchMedia('(hover: none), (max-width: 768px)').matches) return;
+      if (menuClass !== 'documentary-nav-menu' && !window.matchMedia('(hover: none), (max-width: 768px)').matches) return;
       event.preventDefault();
       event.stopPropagation();
       var expanded = item.dataset.dropdownTouchOpen !== 'true';
@@ -124,8 +124,8 @@
     }
   }
 
-  function enhanceRuohuaMenu(link) {
-    var menu = enhanceDropdown(link, 'ruohua-nav-menu', '选择若华内容');
+  function enhancePageMenu(link, menuClass, label) {
+    var menu = enhanceDropdown(link, menuClass, label);
     if (!menu) return;
     var route = window.location.hash.split('?')[0].replace(/\.md$/, '');
     try { route = decodeURIComponent(route); } catch (error) { /* Keep malformed routes inactive. */ }
@@ -173,7 +173,8 @@
       new MutationObserver(mount).observe(nav, { childList: true });
     });
     document.querySelectorAll('.app-nav a').forEach(function (link) {
-      if (link.textContent.trim() === '若华') enhanceRuohuaMenu(link);
+      if (link.textContent.trim() === '若华') enhancePageMenu(link, 'ruohua-nav-menu', '选择若华内容');
+      if (link.textContent.trim() === '纪录片') enhancePageMenu(link, 'documentary-nav-menu', '选择纪录片');
       if (link.textContent.trim() === '全部书目') enhanceLibraryMenu(link);
     });
     loadYears().then(function (years) {

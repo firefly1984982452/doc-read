@@ -21,5 +21,7 @@
   - [阅读笔记](/docs/other/若华阅读笔记.md)
 - [年度归档](#)
   - [正在读取年份…](#)
-- [中国通史](/docs/read-history/《中国通史》纪录片学习笔记.md)
+- [纪录片](#)
+  - [中国通史](/docs/read-history/《中国通史》纪录片学习笔记.md)
+  - [世界通史](/docs/read-history/《世界通史》纪录片学习笔记.md)
 - [关于](/docs/think/about.md)
