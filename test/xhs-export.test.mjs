@@ -31,6 +31,7 @@ test('Xiaohongshu helper exports only 1080x1440 screenshots into the article fol
   assert.match(source, /application\/javascript; charset=utf-8/);
   assert.match(source, /\/__doc_read\/xhs\/file\/jobs/);
   assert.match(source, /origin === ['"]null['"]\) return false/);
+  assert.match(source, /\.section-fold-toggle\s*\{\s*display:\s*none\s*!important;/, 'screenshots omit all interactive fold symbols');
 });
 
 test('folder names preserve Chinese titles while removing unsafe path characters', () => {

@@ -928,6 +928,131 @@ test('Idiot WeChat button preserves all heading colors and serif body after past
   assert.deepEqual(after, before, 'all H2/H3/H4 text and the reflection body keep their colors and fonts when parent styles are removed');
 });
 
+test('nested H3/H4 folds preserve child state and export complete articles without controls', async t => {
+  const page = await pageFor(t, { width: 375, height: 844 });
+  await page.goto(origin + '/#/docs/read/' + encodeURIComponent('蒙曼《唐玄宗》'));
+  await page.waitForFunction(() => window.DocReadArticleCopy &&
+    document.querySelectorAll('.markdown-section > h4 .section-fold-toggle').length === 41);
+  const part = page.locator('.markdown-section > h3').filter({ hasText: '第一部分' });
+  const chapter = page.locator('.markdown-section > h4').first();
+  const chapterButton = chapter.locator('.section-fold-toggle');
+  const partButton = part.locator('.section-fold-toggle');
+  assert.equal(await page.locator('.markdown-section > :is(h3,h4) .section-fold-toggle[aria-expanded="false"]').count(), 0,
+    'all new subsection controls start expanded');
+
+  const compact = await chapterButton.evaluate(button => {
+    const style = getComputedStyle(button);
+    const glyph = getComputedStyle(button.querySelector('span'));
+    const rect = button.getBoundingClientRect();
+    return { background: style.backgroundImage, shadow: style.boxShadow, border: style.borderWidth,
+      glyphWidth: parseFloat(glyph.width), width: rect.width, left: rect.left, right: rect.right, viewport: innerWidth };
+  });
+  assert.equal(compact.background, 'none');
+  assert.equal(compact.shadow, 'none');
+  assert.equal(compact.border, '0px');
+  assert.ok(compact.glyphWidth <= 8, 'the symbol is visually small');
+  assert.ok(compact.width >= 20, 'the small symbol keeps a usable click target');
+  assert.ok(compact.left >= 0 && compact.right <= compact.viewport, 'the control stays inside the mobile page');
+
+  const selectionCopy = await page.evaluate(() => {
+    const article = document.querySelector('.markdown-section');
+    const part = Array.from(article.querySelectorAll(':scope > h3')).find(node => node.textContent.includes('第一部分'));
+    const chapter = article.querySelector(':scope > h4');
+    const paragraph = chapter.nextElementSibling;
+    const range = document.createRange();
+    range.setStartBefore(part);
+    range.setEndAfter(paragraph);
+    const selection = getSelection();
+    selection.removeAllRanges();
+    selection.addRange(range);
+    const originalText = selection.toString();
+    const originalHtml = article.outerHTML;
+    const clipboardData = new DataTransfer();
+    const event = new ClipboardEvent('copy', { bubbles: true, cancelable: true, clipboardData });
+    document.dispatchEvent(event);
+    const result = { html: clipboardData.getData('text/html'), text: clipboardData.getData('text/plain'), originalText,
+      selectedPoint: paragraph.textContent.trim(), nextPoint: paragraph.nextElementSibling.textContent.trim(),
+      handled: event.defaultPrevented, unchanged: article.outerHTML === originalHtml && selection.toString() === originalText };
+    selection.removeAllRanges();
+    return result;
+  });
+  assert.equal(selectionCopy.handled, true, 'manual selection copy strips page controls');
+  assert.equal(selectionCopy.text, selectionCopy.originalText, 'manual copy preserves the exact selected plain text');
+  assert.match(selectionCopy.html, /第一部分/);
+  assert.doesNotMatch(selectionCopy.html, /<button|section-fold-toggle|aria-expanded|aria-label/);
+  assert.ok(selectionCopy.text.includes(selectionCopy.selectedPoint));
+  assert.ok(!selectionCopy.text.includes(selectionCopy.nextPoint), 'manual copy does not enlarge the selection');
+  assert.equal(selectionCopy.unchanged, true);
+
+  await chapterButton.click();
+  await page.waitForFunction(() => document.querySelector('.markdown-section > h4').nextElementSibling.hidden);
+  assert.equal(await page.locator('.markdown-section > h4').nth(1).isVisible(), true, 'the next chapter is unaffected');
+  await partButton.click();
+  await page.waitForFunction(() => document.querySelector('.markdown-section > h4').hidden);
+  await partButton.click();
+  await chapter.waitFor({ state: 'visible' });
+  assert.equal(await chapterButton.getAttribute('aria-expanded'), 'false');
+  assert.equal(await chapter.evaluate(heading => heading.nextElementSibling.hidden), true,
+    'reopening the part preserves its collapsed chapter');
+  await chapterButton.press('Enter');
+  await page.waitForFunction(() => !document.querySelector('.markdown-section > h4').nextElementSibling.hidden);
+  assert.equal(await chapterButton.getAttribute('aria-expanded'), 'true', 'the compact control supports the keyboard');
+  await chapterButton.click();
+  await page.waitForFunction(() => document.querySelector('.markdown-section > h4').nextElementSibling.hidden);
+  await partButton.click();
+  await page.waitForFunction(() => document.querySelector('.markdown-section > h4').hidden);
+
+  const copied = await page.evaluate(() => {
+    const article = document.querySelector('.markdown-section');
+    const before = article.outerHTML;
+    const expectedChapters = Array.from(article.querySelectorAll(':scope > h4')).map(heading => heading.textContent.trim());
+    const expectedPoints = Array.from(article.querySelectorAll(':scope > p')).map(node => node.textContent.trim())
+      .filter(text => /^[①-⑳]/.test(text));
+    const wechat = window.DocReadArticleCopy.buildWechatPayload(article);
+    const zhihu = window.DocReadArticleCopy.buildZhihuPayload(article);
+    return { expectedChapters, expectedPoints, wechat, zhihu, unchanged: before === article.outerHTML };
+  });
+  assert.equal(copied.unchanged, true, 'both exports leave the nested fold states untouched');
+  assert.equal(copied.expectedChapters.length, 41);
+  assert.equal(copied.expectedPoints.length, 130, 'includes chapter points plus the foreword and timeline');
+  for (const [platform, payload] of Object.entries({ wechat: copied.wechat, zhihu: copied.zhihu })) {
+    assert.doesNotMatch(payload.html, /<button|section-fold|data-fold-key|aria-expanded|aria-label|\shidden(?:[=>\s]|$)/,
+      platform + ' contains no fold control or hidden-state markup');
+    assert.doesNotMatch(payload.text, /折叠“|展开“/);
+    for (const text of copied.expectedChapters.concat(copied.expectedPoints)) {
+      assert.ok(payload.text.includes(text), platform + ' keeps ' + text);
+    }
+    const visible = await page.evaluate(html => {
+      const doc = new DOMParser().parseFromString(html, 'text/html');
+      return Array.from(doc.querySelectorAll('h4, p')).every(node => !node.hidden && node.style.display !== 'none');
+    }, payload.html);
+    assert.equal(visible, true, platform + ' makes the folded content visible in the export');
+  }
+  await partButton.click();
+  await chapter.waitFor({ state: 'visible' });
+  await chapterButton.click();
+  await page.waitForFunction(() => !document.querySelector('.markdown-section > h4').nextElementSibling.hidden &&
+    !document.querySelector('.is-fold-entering, .is-fold-leaving'));
+  await chapterButton.evaluate(button => Promise.allSettled(button.getAnimations({ subtree: true }).map(animation => animation.finished)));
+  await part.evaluate(heading => window.scrollTo({ top: window.scrollY + heading.getBoundingClientRect().top - 90, behavior: 'instant' }));
+  await screenshot(page, 'nested-fold-controls-mobile');
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await part.evaluate(heading => window.scrollTo({ top: window.scrollY + heading.getBoundingClientRect().top - 150, behavior: 'instant' }));
+  await screenshot(page, 'nested-fold-controls-desktop');
+});
+
+test('library subheadings also receive expanded compact fold controls', async t => {
+  const page = await pageFor(t);
+  await page.goto(origin + '/#/docs/library');
+  await page.waitForFunction(() => document.querySelectorAll('.markdown-section > h3 .section-fold-toggle-compact').length > 0);
+  const buttons = page.locator('.markdown-section > h3 .section-fold-toggle-compact');
+  assert.ok(await buttons.count() > 1, 'navigation pages also support subsection folding');
+  assert.equal(await buttons.evaluateAll(nodes => nodes.every(button => button.getAttribute('aria-expanded') === 'true')), true);
+  await buttons.first().click();
+  await page.waitForFunction(() => document.querySelector('.markdown-section > h3').nextElementSibling.hidden);
+  assert.equal(await page.locator('.markdown-section > h3').nth(1).isVisible(), true);
+});
+
 test('article copy includes folded content and reports clipboard denial', async t => {
   const page = await pageFor(t);
   await page.addInitScript(() => {

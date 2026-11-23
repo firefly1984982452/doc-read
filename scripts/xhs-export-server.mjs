@@ -269,7 +269,7 @@ async function captureScreenshots({ relative, directory, siteOrigin, onProgress 
     await page.addStyleTag({ content: `
       html, body { background: #edf3fc !important; scroll-behavior: auto !important; }
       * { animation: none !important; transition: none !important; }
-      .sidebar, .sidebar-toggle, .reading-tools, .theme-toggle, #reading-progress,
+      .sidebar, .sidebar-toggle, .reading-tools, .theme-toggle, #reading-progress, #reading-progress-label,
       .wechat-copy-toast, .typo-dialog, .docsify-pagination-container, .pagination-item { display: none !important; }
       .content, body.close .content, body:not(.close) .content { left: 0 !important; transform: none !important; }
       .app-nav { box-sizing: border-box !important; left: auto !important; margin: 28px auto 0 !important; max-width: 650px !important;
@@ -279,7 +279,7 @@ async function captureScreenshots({ relative, directory, siteOrigin, onProgress 
         min-height: 0 !important; padding: 44px 34px 90px !important; width: calc(100vw - 70px) !important; }
       .markdown-section img { max-width: 100% !important; }
       .section-fold-item[hidden] { display: revert !important; }
-      .section-fold-toggle { pointer-events: none !important; }
+      .section-fold-toggle { display: none !important; }
     ` });
     await page.evaluate(() => document.fonts && document.fonts.ready);
     const imageState = await waitForImages(page);

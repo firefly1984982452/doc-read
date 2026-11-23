@@ -45,6 +45,17 @@ test('copy retains subheadings and list line breaks but excludes Docsify paginat
   assert.equal(load('#/').sectionText(heading), '本篇\n\n感想\n\n第一条\n第二条');
 });
 
+test('nested subsection fold controls never enter Ruohua copies', () => {
+  const heading = element('H2', element('BUTTON', '⌄'), '本篇');
+  const part = element('H3', element('BUTTON', '▸'), '第一部分');
+  const chapter = element('H4', element('BUTTON', '▸'), '第一章');
+  const body = element('P', '完整正文');
+  chapter.hidden = true;
+  body.hidden = true;
+  siblings(heading, part, chapter, body, element('H2', '下一篇'), element('P', '不复制'));
+  assert.equal(load('#/').sectionText(heading), '本篇\n\n第一部分\n\n第一章\n\n完整正文');
+});
+
 test('Ruohua body lines copy with two Chinese spaces without indenting headings, dates or link rows', () => {
   const heading = element('H2', '本篇');
   const body = element('P', '第一行\n\u3000\u3000第二行');

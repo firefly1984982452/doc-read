@@ -18,7 +18,16 @@ function element(tagName, textContent = '') {
     setAttribute(name, value) { this.attributes[name] = value; },
     getAttribute(name) { return this.attributes[name]; },
     addEventListener(name, callback) { this[name] = callback; },
-    querySelector() { return this.children.find(child => child.className === 'section-fold-toggle'); },
+    matches(selector) {
+      if (selector.startsWith('.')) return classes.has(selector.slice(1)) || (this.className || '').split(/\s+/).includes(selector.slice(1));
+      return this.tagName === selector.toUpperCase();
+    },
+    querySelector(selector) { return this.querySelectorAll(selector)[0] || null; },
+    querySelectorAll(selector) {
+      const descendants = this.children.flatMap(child => [child, ...child.querySelectorAll('*')]);
+      if (selector === '*') return descendants;
+      return descendants.filter(child => selector.split(',').some(part => child.matches(part.trim())));
+    },
     contains(target) { return this === target || this.children.some(child => child.contains(target)); },
     insertBefore(child) { setChildren(this, [child, ...this.children]); },
     cloneNode() { return { textContent: this.textContent, querySelectorAll: () => [] }; }
@@ -34,7 +43,7 @@ function setChildren(parent, children) {
   });
 }
 
-function mount(hash, stored, storageThrows = false, { reduceMotion = true, deferArticle = false } = {}) {
+function mount(hash, stored, storageThrows = false, { reduceMotion = true, deferArticle = false, children = null } = {}) {
   const heading = element('H2', '2026-09-09《小巫女真美丽》阅读笔记-手绘漫画');
   heading.id = 'first-section';
   const body = element('P', '原有正文');
@@ -47,7 +56,7 @@ function mount(hash, stored, storageThrows = false, { reduceMotion = true, defer
   secondHeading.id = 'second-section';
   const secondBody = element('P', '另一个区块正文');
   const article = element('ARTICLE');
-  setChildren(article, [heading, body, secondHeading, secondBody]);
+  setChildren(article, children || [heading, body, secondHeading, secondBody]);
   const events = [];
   const storageWrites = [];
   const timers = new Map();
@@ -59,7 +68,7 @@ function mount(hash, stored, storageThrows = false, { reduceMotion = true, defer
     createElement: element,
     addEventListener() {},
     dispatchEvent(event) { events.push(event); },
-    getElementById: id => [heading, match, secondHeading].find(node => node.id === id)
+    getElementById: id => article.querySelectorAll('*').find(node => node.id === id)
   };
   const window = {
     location: { hash }, matchMedia: () => ({ matches: reduceMotion }),
@@ -93,6 +102,32 @@ function mount(hash, stored, storageThrows = false, { reduceMotion = true, defer
       }
     }
   };
+}
+
+function nestedPage({ hash = '#/docs/read/分层笔记', stored = null, reduceMotion = true } = {}) {
+  const nodes = {};
+  for (const [name, tag, text] of [
+    ['parent', 'H2', '梗概'], ['intro', 'P', '总述'],
+    ['part', 'H3', '第一部分'], ['chapter', 'H4', '第一章'],
+    ['body', 'P', '第一章正文'], ['detail', 'H5', '细节'], ['detailBody', 'P', '细节正文'],
+    ['nextChapter', 'H4', '第二章'], ['nextBody', 'P', '第二章正文'],
+    ['nextPart', 'H3', '第二部分'], ['nextPartBody', 'P', '第二部分正文'],
+    ['following', 'H2', '书摘'], ['followingBody', 'P', '书摘正文'],
+    ['end', 'H1', '下一篇'], ['endBody', 'P', '下一篇正文']
+  ]) {
+    nodes[name] = element(tag, text);
+    nodes[name].id = name;
+  }
+  const match = element('MARK', '搜索命中');
+  match.id = 'nested-match';
+  setChildren(nodes.body, [match]);
+  const page = mount(hash, stored, false, { reduceMotion, children: Object.values(nodes) });
+  return { ...page, nodes, match, button: name => nodes[name].querySelector('.section-fold-toggle') };
+}
+
+function click(button) {
+  assert.ok(button, 'the section has a folding control');
+  button.click({ preventDefault() {}, stopPropagation() {} });
 }
 
 test('compact reading pages always start collapsed, including encoded routes and previously expanded sections', () => {
@@ -171,6 +206,7 @@ test('search reveal ignores targets outside the article and the home page', () =
   home.window.DocReadSectionFold.reveal(home.match);
   assert.equal(home.heading.children.length, 0);
   assert.equal(home.events.length, 0);
+  assert.equal(home.body.hidden, false);
 });
 
 test('search reveal cancels a pending collapse while ordinary clicks still persist state', () => {
@@ -204,4 +240,149 @@ test('existing anchor reveal keeps its animated, persisted behavior for nested t
   assert.equal(page.body.classList.contains('is-fold-entering'), true);
   assert.equal(page.secondBody.hidden, true);
   assert.deepEqual(page.storageWrites, [{ key: 'doc-read:fold:#/docs/read/普通笔记:first-section', value: '0' }]);
+});
+
+test('H3 and H4 start expanded even under a remembered or default-collapsed H2', () => {
+  for (const hash of ['#/docs/read/分层笔记', '#/docs/other/若华日记', '#/docs/read-history/《中国通史》纪录片学习笔记']) {
+    const page = nestedPage({ hash, stored: '1' });
+    assert.equal(page.button('parent').getAttribute('aria-expanded'), 'false');
+    for (const name of ['part', 'chapter', 'nextChapter', 'nextPart']) {
+      assert.equal(page.button(name).getAttribute('aria-expanded'), 'true', name + ' ignores remembered H2 defaults');
+      assert.ok(page.button(name).className.split(/\s+/).includes('section-fold-toggle-compact'));
+    }
+    assert.equal(page.nodes.body.hidden, true, 'expanded child controls do not unhide a collapsed ancestor');
+    click(page.button('parent'));
+    assert.equal(page.nodes.body.hidden, false);
+    assert.equal(page.nodes.nextPartBody.hidden, false);
+  }
+});
+
+test('nested folding stops at peer headings and preserves child choices through parent toggles', () => {
+  const page = nestedPage();
+  const { nodes } = page;
+  click(page.button('chapter'));
+  assert.equal(nodes.chapter.hidden, false);
+  assert.equal(nodes.body.hidden, true);
+  assert.equal(nodes.detail.hidden, true, 'an H5 belongs to the preceding H4');
+  assert.equal(nodes.detailBody.hidden, true);
+  assert.equal(nodes.nextChapter.hidden, false);
+  assert.equal(nodes.nextBody.hidden, false);
+
+  click(page.button('part'));
+  assert.equal(nodes.chapter.hidden, true);
+  assert.equal(nodes.nextChapter.hidden, true);
+  assert.equal(nodes.nextBody.hidden, true);
+  assert.equal(nodes.nextPart.hidden, false, 'a sibling H3 stays visible');
+  assert.equal(nodes.nextPartBody.hidden, false);
+  click(page.button('part'));
+  assert.equal(nodes.chapter.hidden, false);
+  assert.equal(nodes.body.hidden, true, 'expanding H3 preserves an explicitly folded H4');
+  assert.equal(nodes.nextBody.hidden, false);
+
+  click(page.button('parent'));
+  assert.equal(nodes.nextPart.hidden, true);
+  assert.equal(nodes.following.hidden, false, 'a sibling H2 stays visible');
+  assert.equal(nodes.followingBody.hidden, false);
+  assert.equal(nodes.end.hidden, false, 'a later H1 starts a new section');
+  click(page.button('parent'));
+  assert.equal(nodes.body.hidden, true, 'expanding H2 also preserves the folded H4');
+  assert.equal(nodes.nextBody.hidden, false);
+  click(page.button('chapter'));
+  assert.equal(nodes.body.hidden, false);
+  assert.equal(nodes.detail.hidden, false);
+  assert.equal(nodes.detailBody.hidden, false);
+});
+
+test('compact controls ignore storage, preserve choices on remount, and reset for a freshly rendered page', () => {
+  const page = nestedPage();
+  click(page.button('chapter'));
+  click(page.button('part'));
+  assert.deepEqual(page.storageWrites, [], 'H3/H4 choices are not persisted into a new render');
+  page.window.DocReadSectionFold.mount();
+  page.window.DocReadSectionFold.mount();
+  assert.equal(page.nodes.body.hidden, true);
+  assert.equal(page.button('part').getAttribute('aria-expanded'), 'false');
+  for (const name of ['parent', 'part', 'chapter', 'nextChapter', 'nextPart', 'following']) {
+    assert.equal(page.nodes[name].querySelectorAll('.section-fold-toggle').length, 1);
+  }
+  const fresh = nestedPage();
+  assert.equal(fresh.nodes.body.hidden, false);
+  assert.equal(fresh.button('chapter').getAttribute('aria-expanded'), 'true');
+  assert.equal(fresh.button('part').getAttribute('aria-expanded'), 'true');
+});
+
+test('search reveal opens every containing level without expanding unrelated siblings or saving preferences', () => {
+  const page = nestedPage({ reduceMotion: false });
+  for (const name of ['chapter', 'nextChapter', 'part', 'parent']) click(page.button(name));
+  const savedBeforeReveal = [...page.storageWrites];
+  page.window.DocReadSectionFold.reveal(page.match);
+  page.runTimers(150);
+  for (const name of ['parent', 'part', 'chapter']) {
+    assert.equal(page.button(name).getAttribute('aria-expanded'), 'true', name + ' is revealed');
+  }
+  assert.equal(page.nodes.body.hidden, false);
+  assert.equal(page.nodes.body.classList.contains('is-fold-leaving'), false);
+  assert.equal(page.nodes.body.classList.contains('is-fold-entering'), false);
+  assert.equal(page.button('nextChapter').getAttribute('aria-expanded'), 'false');
+  assert.equal(page.nodes.nextBody.hidden, true, 'unrelated sibling remains folded');
+  assert.deepEqual(page.storageWrites, savedBeforeReveal);
+});
+
+test('anchor navigation reveals both a folded heading and its ancestors', () => {
+  const page = nestedPage({ reduceMotion: false });
+  for (const name of ['chapter', 'nextChapter', 'part', 'parent']) click(page.button(name));
+  page.window.location.hash += '?id=chapter';
+  page.window.DocReadSectionFold.mount();
+  page.runTimers(0);
+  page.runTimers(150);
+  for (const name of ['parent', 'part', 'chapter']) {
+    assert.equal(page.button(name).getAttribute('aria-expanded'), 'true');
+  }
+  assert.equal(page.nodes.chapter.hidden, false);
+  assert.equal(page.nodes.body.hidden, false);
+  assert.equal(page.nodes.nextBody.hidden, true);
+  assert.equal(page.storageWrites.at(-1).value, '0', 'revealing the H2 anchor keeps its remembered behavior');
+  assert.ok(page.storageWrites.every(write => write.key.endsWith(':parent')), 'compact levels never write a saved state');
+});
+
+test('pending child and parent animations cannot expose a collapsed descendant', () => {
+  const page = nestedPage({ reduceMotion: false });
+  click(page.button('chapter'));
+  click(page.button('part'));
+  click(page.button('part'));
+  page.runTimers(150);
+  assert.equal(page.nodes.chapter.hidden, false);
+  assert.equal(page.nodes.body.hidden, true);
+  assert.equal(page.nodes.nextBody.hidden, false);
+
+  click(page.button('parent'));
+  click(page.button('chapter'));
+  page.runTimers(150);
+  assert.equal(page.button('chapter').getAttribute('aria-expanded'), 'true');
+  assert.equal(page.nodes.body.hidden, true, 'opening a child cannot reveal content hidden by its parent');
+  click(page.button('parent'));
+  page.animationFrames.forEach(callback => callback());
+  page.runTimers(150);
+  assert.equal(page.nodes.body.hidden, false);
+  assert.equal(page.nodes.body.classList.contains('is-fold-leaving'), false);
+});
+
+test('skipped heading levels and the home page use the same section boundaries', () => {
+  for (const hash of ['#/', '#/docs/library']) {
+    const parent = element('H2', '总标题');
+    const chapter = element('H4', '跳级章节');
+    const body = element('P', '章节正文');
+    const peer = element('H3', '后续分组');
+    const peerBody = element('P', '后续正文');
+    const page = mount(hash, null, false, { children: [parent, chapter, body, peer, peerBody] });
+    assert.equal(Boolean(parent.querySelector('.section-fold-toggle')), hash !== '#/');
+    assert.equal(chapter.querySelector('.section-fold-toggle').getAttribute('aria-expanded'), 'true');
+    assert.equal(peer.querySelector('.section-fold-toggle').getAttribute('aria-expanded'), 'true');
+    click(chapter.querySelector('.section-fold-toggle'));
+    assert.equal(body.hidden, true);
+    assert.equal(peer.hidden, false);
+    assert.equal(peerBody.hidden, false);
+    page.window.DocReadSectionFold.reveal(body);
+    assert.equal(body.hidden, false, 'search reveal also works for a compact control on the home page');
+  }
 });

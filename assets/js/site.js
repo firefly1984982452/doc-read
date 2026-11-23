@@ -4,6 +4,10 @@
   var root = document.documentElement;
   var toggle = document.getElementById('theme-toggle');
   var progress = document.getElementById('reading-progress');
+  var progressLabel = document.getElementById('reading-progress-label');
+  var progressFrame = null;
+  var observedArticle = null;
+  var progressObserver = window.ResizeObserver ? new window.ResizeObserver(scheduleProgress) : null;
   var backToTop = document.getElementById('back-to-top');
   var backToBottom = document.getElementById('back-to-bottom');
 
@@ -53,20 +57,53 @@
     updateThemeLabel();
   });
 
-  function updateProgress() {
-    var article = document.querySelector('.markdown-section');
-    if (!article) return;
-    var rect = article.getBoundingClientRect();
-    var readable = Math.max(article.scrollHeight - window.innerHeight, 1);
-    var read = Math.min(Math.max(-rect.top, 0), readable);
-    progress.style.transform = 'scaleX(' + (read / readable) + ')';
+  function setProgress(value) {
+    var ratio = Math.min(Math.max(value, 0), 1);
+    var percent = Math.round(ratio * 100);
+    if (progress) {
+      progress.style.transform = 'scaleX(' + ratio + ')';
+      progress.setAttribute('aria-valuenow', String(percent));
+    }
+    if (progressLabel) {
+      progressLabel.dataset.progress = percent + '%';
+      progressLabel.style.setProperty('--progress-position', (ratio * 100) + '%');
+    }
   }
 
-  window.addEventListener('scroll', updateProgress, { passive: true });
-  window.addEventListener('resize', updateProgress, { passive: true });
+  function updateProgress() {
+    progressFrame = null;
+    var article = document.querySelector('.markdown-section');
+    if (article !== observedArticle) {
+      if (progressObserver) {
+        progressObserver.disconnect();
+        if (article) progressObserver.observe(article);
+      }
+      observedArticle = article;
+    }
+    if (!article) {
+      setProgress(0);
+      if (progressLabel) progressLabel.hidden = true;
+      return;
+    }
+    var rect = article.getBoundingClientRect();
+    if (progressLabel) progressLabel.hidden = !rect.height || rect.top >= window.innerHeight;
+    var readable = article.scrollHeight - window.innerHeight;
+    setProgress(readable > 0 ? -rect.top / readable : (rect.bottom <= window.innerHeight ? 1 : 0));
+  }
+
+  function scheduleProgress() {
+    if (progressFrame === null) progressFrame = window.requestAnimationFrame(updateProgress);
+  }
+
+  window.DocReadProgress = { reset: function () { setProgress(0); } };
+  window.addEventListener('scroll', scheduleProgress, { passive: true });
+  window.addEventListener('resize', scheduleProgress, { passive: true });
+  document.addEventListener('doc-read:rendered', scheduleProgress);
+  document.addEventListener('doc-read:sections-ready', scheduleProgress);
   window.addEventListener('hashchange', function () {
-    progress.style.transform = 'scaleX(0)';
-    window.requestAnimationFrame(updateProgress);
+    setProgress(0);
+    scheduleProgress();
   });
+  scheduleProgress();
   updateThemeLabel();
 }());

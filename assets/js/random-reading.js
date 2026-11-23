@@ -74,6 +74,10 @@
   }
 
   function resetProgress() {
+    if (global.DocReadProgress) {
+      global.DocReadProgress.reset();
+      return;
+    }
     var progress = global.document.getElementById('reading-progress');
     if (progress) progress.style.transform = 'scaleX(0)';
   }

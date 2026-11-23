@@ -505,6 +505,7 @@
       if (node.nodeType !== 1) return '';
 
       var tag = String(node.tagName || '').toUpperCase();
+      if (/^(BUTTON|SCRIPT|STYLE|NOSCRIPT)$/.test(tag)) return '';
       if (tag === 'BR') return '\n';
       if (tag === 'IMG') return node.getAttribute && node.getAttribute('alt') ? node.getAttribute('alt') : '';
 
@@ -517,7 +518,7 @@
     }
 
     var text = walk(article);
-    if (!text && article) text = article.innerText || article.textContent || '';
+    if (!text && article && article.nodeType !== 1) text = article.innerText || article.textContent || '';
     return text
       .replace(/\u00a0/g, ' ')
       .replace(/[ \t]+\n/g, '\n')

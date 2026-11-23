@@ -2,14 +2,15 @@
   'use strict';
 
   var pendingTimers = new WeakMap();
+  var nodeOwners = new WeakMap();
   var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   function currentRoute() {
     return (window.location.hash || '#/').split('?')[0];
   }
 
-  function isFoldablePage() {
-    return currentRoute() !== '#/';
+  function headingLevel(heading) {
+    return /^H[1-6]$/.test(heading.tagName) ? Number(heading.tagName.slice(1)) : 0;
   }
 
   function sectionTitle(heading) {
@@ -18,11 +19,22 @@
     return (clone.textContent || '本节').trim();
   }
 
+  function isWeChatCover(node) {
+    if (node.tagName !== 'P' || node.childElementCount !== 1) return false;
+    var image = node.querySelector(':scope > img, :scope > .reading-image-with-caption > img');
+    return Boolean(image && /^《[^》]+》微信公众号封面$/.test(image.getAttribute('alt') || ''));
+  }
+
   function sectionNodes(heading) {
     var nodes = [];
+    var level = headingLevel(heading);
     var current = heading.nextElementSibling;
-    while (current && !/^(?:H1|H2)$/.test(current.tagName)) {
+    while (current) {
+      var currentLevel = headingLevel(current);
+      if (currentLevel && currentLevel <= level) break;
       if (current.classList.contains('docsify-pagination-container') || current.classList.contains('pagination-item')) break;
+      // An article's WeChat cover sits outside the last foldable section.
+      if (isWeChatCover(current)) break;
       nodes.push(current);
       current = current.nextElementSibling;
     }
@@ -55,65 +67,76 @@
     button.setAttribute('title', action + '本节');
   }
 
-  function setCollapsed(heading, button, nodes, collapsed, options) {
-    var timer = pendingTimers.get(heading);
-    if (timer) window.clearTimeout(timer);
-    pendingTimers.delete(heading);
-    heading.classList.toggle('is-section-collapsed', collapsed);
-    updateLabel(button, sectionTitle(heading), collapsed);
-    if (options && options.persist) saveCollapsed(button.dataset.foldKey, collapsed);
+  function isNodeCollapsed(node) {
+    var owners = nodeOwners.get(node);
+    return owners && Array.from(owners).some(function (heading) {
+      return heading.classList.contains('is-section-collapsed');
+    });
+  }
 
-    if (collapsed) {
-      if (!options || !options.animate || reduceMotion) {
-        nodes.forEach(function (node) {
-          node.classList.remove('is-fold-entering', 'is-fold-leaving');
-          node.hidden = true;
-        });
+  function updateNode(node, animate) {
+    // A node may belong to H2, H3 and H4 simultaneously. Cancel animation per
+    // node so an older parent/child transition cannot overwrite the new state.
+    var timer = pendingTimers.get(node);
+    if (timer) window.clearTimeout(timer);
+    pendingTimers.delete(node);
+    node.classList.remove('is-fold-entering', 'is-fold-leaving');
+
+    if (isNodeCollapsed(node)) {
+      if (!animate || reduceMotion || node.hidden) {
+        node.hidden = true;
         return;
       }
-      nodes.forEach(function (node) {
-        node.classList.remove('is-fold-entering');
-        node.classList.add('is-fold-leaving');
-      });
+      node.classList.add('is-fold-leaving');
       timer = window.setTimeout(function () {
-        nodes.forEach(function (node) {
-          node.hidden = true;
-          node.classList.remove('is-fold-leaving');
-        });
-        pendingTimers.delete(heading);
+        node.hidden = Boolean(isNodeCollapsed(node));
+        node.classList.remove('is-fold-leaving');
+        pendingTimers.delete(node);
       }, 150);
-      pendingTimers.set(heading, timer);
+      pendingTimers.set(node, timer);
       return;
     }
 
-    nodes.forEach(function (node) {
-      node.hidden = false;
-      node.classList.remove('is-fold-entering', 'is-fold-leaving');
-      if (options && options.animate && !reduceMotion) node.classList.add('is-fold-entering');
-    });
-    if (options && options.animate && !reduceMotion) {
+    var wasHidden = node.hidden;
+    node.hidden = false;
+    if (animate && !reduceMotion && wasHidden) {
+      node.classList.add('is-fold-entering');
       window.requestAnimationFrame(function () {
-        nodes.forEach(function (node) { node.classList.remove('is-fold-entering'); });
+        node.classList.remove('is-fold-entering');
       });
     }
+  }
+
+  function setCollapsed(heading, button, nodes, collapsed, options) {
+    heading.classList.toggle('is-section-collapsed', collapsed);
+    updateLabel(button, sectionTitle(heading), collapsed);
+    // Compact headings start expanded on each newly rendered page. Existing
+    // H2 preferences and the compact-list defaults stay specific to H2.
+    if (options && options.persist && heading.tagName === 'H2') saveCollapsed(button.dataset.foldKey, collapsed);
+    nodes.forEach(function (node) { updateNode(node, options && options.animate); });
   }
 
   function mountHeading(heading, index) {
     if (heading.querySelector('.section-fold-toggle')) return;
     var nodes = sectionNodes(heading);
     if (!nodes.length) return;
-    nodes.forEach(function (node) { node.classList.add('section-fold-item'); });
+    nodes.forEach(function (node) {
+      node.classList.add('section-fold-item');
+      var owners = nodeOwners.get(node);
+      if (!owners) { owners = new Set(); nodeOwners.set(node, owners); }
+      owners.add(heading);
+    });
 
     var key = stateKey(heading, index);
     var button = document.createElement('button');
     button.type = 'button';
-    button.className = 'section-fold-toggle';
+    button.className = 'section-fold-toggle' + (heading.tagName === 'H2' ? '' : ' section-fold-toggle-compact');
     button.dataset.foldKey = key;
     button.innerHTML = '<span aria-hidden="true"></span>';
     heading.classList.add('has-section-fold');
     heading.insertBefore(button, heading.firstChild);
 
-    setCollapsed(heading, button, nodes, savedCollapsed(key), { animate: false, persist: false });
+    setCollapsed(heading, button, nodes, heading.tagName === 'H2' && savedCollapsed(key), { animate: false, persist: false });
     button.addEventListener('click', function (event) {
       event.preventDefault();
       event.stopPropagation();
@@ -126,13 +149,16 @@
     if (!target || !article.contains(target)) return;
     while (target.parentElement && target.parentElement !== article) target = target.parentElement;
     var current = target;
+    var level = 7;
     while (current && current !== article) {
-      if (current.tagName === 'H2') {
+      var currentLevel = headingLevel(current);
+      if (currentLevel && currentLevel < level) {
+        level = currentLevel;
         var button = current.querySelector('.section-fold-toggle');
         if (button && button.getAttribute('aria-expanded') === 'false') {
           setCollapsed(current, button, sectionNodes(current), false, options);
         }
-        return;
+        if (level === 1) return;
       }
       current = current.previousElementSibling;
     }
@@ -147,12 +173,14 @@
   }
 
   function mountHeadings(article) {
-    Array.from(article.children).filter(function (element) { return element.tagName === 'H2'; })
-      .forEach(mountHeading);
+    var headings = Array.from(article.children).filter(function (element) {
+      return /^(?:H3|H4)$/.test(element.tagName) || (element.tagName === 'H2' && currentRoute() !== '#/');
+    });
+    headings.forEach(mountHeading);
+    return headings.length;
   }
 
   function reveal(target) {
-    if (!isFoldablePage()) return;
     var article = document.querySelector('.markdown-section');
     if (!article || !target || !article.contains(target)) return;
     mountHeadings(article);
@@ -160,10 +188,9 @@
   }
 
   function mount() {
-    if (!isFoldablePage()) return;
     var article = document.querySelector('.markdown-section');
     if (!article) return;
-    mountHeadings(article);
+    if (!mountHeadings(article)) return;
     window.setTimeout(function () { revealCurrentAnchor(article); }, 0);
     document.dispatchEvent(new CustomEvent('doc-read:sections-ready'));
   }
@@ -173,5 +200,22 @@
   document.addEventListener('doc-read:rendered', mount);
   window.addEventListener('hashchange', function () { window.setTimeout(mount, 60); });
   document.addEventListener('DOMContentLoaded', mount);
+  // Native selection copying has no platform-specific exporter. Remove only
+  // our controls from its HTML fragment and preserve the browser's text/range.
+  document.addEventListener('copy', function (event) {
+    if (event.defaultPrevented || !event.clipboardData || !window.getSelection) return;
+    var selection = window.getSelection();
+    if (!selection || selection.isCollapsed || !selection.rangeCount) return;
+    var fragment = document.createElement('div');
+    for (var index = 0; index < selection.rangeCount; index++) {
+      fragment.appendChild(selection.getRangeAt(index).cloneContents());
+    }
+    var buttons = fragment.querySelectorAll('.section-fold-toggle');
+    if (!buttons.length) return;
+    buttons.forEach(function (button) { button.remove(); });
+    event.clipboardData.setData('text/html', fragment.innerHTML);
+    event.clipboardData.setData('text/plain', selection.toString());
+    event.preventDefault();
+  });
   mount();
 }());

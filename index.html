@@ -19,9 +19,9 @@
   <link rel="icon" href="./assets/images/favicon.svg" type="image/svg+xml">
   <link rel="manifest" href="./site.webmanifest">
   <link rel="stylesheet" href="./assets/vendor/docsify/vue.css">
-  <link rel="stylesheet" href="./assets/css/blog.css?v=d907b808f6">
+  <link rel="stylesheet" href="./assets/css/blog.css?v=848c48d7e5">
   <script>
-    window.DOC_READ_BUILD = 'd907b808f6';
+    window.DOC_READ_BUILD = '848c48d7e5';
     (function () {
       var savedTheme = localStorage.getItem('doc-read-theme');
       var systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -32,7 +32,8 @@
 
 <body>
   <a class="skip-link" href="#main">跳到正文</a>
-  <div id="reading-progress" aria-hidden="true"></div>
+  <div id="reading-progress" role="progressbar" aria-label="页面阅读进度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"></div>
+  <span id="reading-progress-label" data-progress="0%" aria-hidden="true" hidden></span>
   <button id="theme-toggle" class="theme-toggle" type="button" aria-label="切换深浅色主题" title="切换深浅色主题">
     <span aria-hidden="true">◐</span>
   </button>
@@ -124,7 +125,7 @@
   <div id="app">正在打开书房…</div>
   <noscript>这个网站需要启用 JavaScript 才能浏览阅读笔记。</noscript>
 
-  <script src="./assets/data/legacy-routes.js?v=d907b808f6"></script>
+  <script src="./assets/data/legacy-routes.js?v=848c48d7e5"></script>
   <script>
     window.$docsify = {
       name: '丹的阅读笔记',
@@ -233,13 +234,13 @@
   <script src="./assets/vendor/docsify/zoom-image.min.js"></script>
   <script src="./assets/vendor/docsify/docsify-pagination.min.js"></script>
   <!-- <script src="./assets/vendor/docsify/countable.min.js"></script> -->
-  <script src="./assets/js/site.js"></script>
-  <script src="./assets/data/typo-rules.js?v=d907b808f6"></script>
-  <script src="./assets/js/resource-loader.js?v=d907b808f6"></script>
-  <script src="./assets/js/archive-nav.js?v=d907b808f6"></script>
-  <script src="./assets/js/search-highlight.js?v=d907b808f6"></script>
-  <script src="./assets/js/search.js?v=d907b808f6"></script>
-  <script src="./assets/js/route-loader.js?v=d907b808f6"></script>
+  <script src="./assets/js/site.js?v=848c48d7e5"></script>
+  <script src="./assets/data/typo-rules.js?v=848c48d7e5"></script>
+  <script src="./assets/js/resource-loader.js?v=848c48d7e5"></script>
+  <script src="./assets/js/archive-nav.js?v=848c48d7e5"></script>
+  <script src="./assets/js/search-highlight.js?v=848c48d7e5"></script>
+  <script src="./assets/js/search.js?v=848c48d7e5"></script>
+  <script src="./assets/js/route-loader.js?v=848c48d7e5"></script>
 </body>
 
 </html>

@@ -165,6 +165,20 @@ test('Zhihu payload is semantic and strips page-only attributes and local URLs',
   assert.equal(dirty.getAttribute('onclick'), null);
 });
 
+test('plain-text export excludes heading controls even when given unsanitized folded content', async () => {
+  const { api } = await loadCopy();
+  const control = mutableElement('button', { 'aria-expanded': 'false', 'aria-label': '展开本节' }, [textNode('▸')]);
+  const article = mutableElement('article', {}, [
+    mutableElement('h3', {}, [control, textNode('第一部分')]),
+    mutableElement('h4', {}, [mutableElement('button', {}, [textNode('⌄')]), textNode('第一章')]),
+    mutableElement('p', { hidden: '' }, [textNode('折叠后的正文仍完整保留。')])
+  ]);
+  assert.equal(api.articlePlainText(article), '第一部分\n\n第一章\n\n折叠后的正文仍完整保留。');
+  const controlsOnly = mutableElement('article', {}, [control]);
+  controlsOnly.textContent = '▸';
+  assert.equal(api.articlePlainText(controlsOnly), '', 'empty prose must not fall back to control text');
+});
+
 test('Clipboard API writes both HTML and plain text MIME values', async () => {
   let clipboardItems;
   class TestClipboardItem {

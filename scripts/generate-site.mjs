@@ -185,6 +185,7 @@ await fs.writeFile(path.join(root, 'sitemap.xml'), sitemap, 'utf8');
 
 const versionedAssets = [
   'assets/css/blog.css',
+  'assets/js/site.js',
   'assets/data/legacy-routes.js',
   'assets/data/typo-rules.js',
   'assets/js/resource-loader.js',
