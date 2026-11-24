@@ -1249,3 +1249,32 @@ test('Zhihu export compacts images and groups excerpts without losing content', 
   assert.match(result.compact.text, /alpha beta gamma\ndelta/);
   assert.doesNotMatch(result.compact.html, /\u200b|<hr\b/);
 });
+
+test('World History WeChat copy aligns each episode note number', async t => {
+  const page = await pageFor(t, { width: 375, height: 800 });
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'clipboard', { value: { write: async ([item]) => {
+      window.copiedHistory = await (await item.getType('text/html')).text();
+    } } });
+  });
+  await page.goto(origin + '/#/docs/read-history/' + encodeURIComponent('《世界通史》纪录片学习笔记'));
+  await page.locator('#wechat-copy').click();
+  await page.waitForFunction(() => window.copiedHistory);
+  const preview = await pageFor(t, { width: 375, height: 800 });
+  await preview.setContent(await page.evaluate(() => window.copiedHistory));
+  const episodes = await preview.evaluate(() => [96, 97].map(episode => {
+    const heading = Array.from(document.querySelectorAll('h3')).find(element => element.textContent.startsWith('第' + episode + '集'));
+    const rows = Array.from(heading.nextElementSibling.nextElementSibling.querySelectorAll(':scope > p'));
+    return rows.map(row => {
+      const text = document.createTreeWalker(row, NodeFilter.SHOW_TEXT).nextNode();
+      const range = document.createRange();
+      range.setStart(text, 0);
+      range.setEnd(text, 1);
+      return { number: range.toString(), left: range.getBoundingClientRect().left };
+    });
+  }));
+  for (const rows of episodes) {
+    assert.deepEqual(rows.map(row => row.number), ['①', '②', '③', '④']);
+    assert.ok(rows.every(row => row.left === rows[0].left));
+  }
+});
