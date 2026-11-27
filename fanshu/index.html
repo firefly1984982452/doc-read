@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>帆书 · 在线书单</title>
+<style>
+:root{font:16px system-ui,sans-serif;color:#444;background:#fff;--yellow:#ffcd00}*{box-sizing:border-box}body{margin:0}header{border-bottom:1px solid #eee}header div,main{width:min(1200px,94%);margin:auto}header div{padding:18px 0;font-size:24px;font-weight:750}header small{font-size:14px;color:#888;font-weight:400}nav{display:flex;flex-wrap:wrap;gap:10px;padding:16px 0;border-bottom:1px dashed #ccc}button,a{font:inherit}button{cursor:pointer;color:inherit;background:transparent;border:0;border-radius:8px;padding:6px 10px}button[aria-pressed=true]{background:var(--yellow)}button:focus-visible,a:focus-visible{outline:2px solid #9b7200;outline-offset:2px}#status{color:#777;font-size:14px;min-height:21px;margin:14px 0 22px}#cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:28px}.card{min-width:0;display:flex;gap:14px;background:#f7f7f7;border-radius:11px;padding:14px;color:inherit;text-decoration:none}.card:hover{box-shadow:0 5px 16px #0001}.cover{width:87px;height:116px;object-fit:cover;border-radius:5px;background:#eee;flex:none}.details{min-width:0;flex:1;display:flex;flex-direction:column;gap:5px}h2{font-size:17px;margin:0;font-weight:650}.summary,.date,.bottom{font-size:14px;color:#777}.summary{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.bottom{display:flex;align-items:end;justify-content:space-between;margin-top:auto;gap:5px}.play,#more{border:1px solid #ddd;border-radius:7px;background:#fff;white-space:nowrap;padding:4px 8px;color:#444}.play::before{content:'▶ ';color:#e7a900}footer{text-align:center;padding:36px 0 54px}#more{padding:8px 14px}#local-note{margin:14px 0;color:#555;font-size:14px}#local-note a{color:#725400}@media(max-width:950px){#cards{grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}}@media(max-width:600px){#cards{grid-template-columns:1fr}}
+.card{flex-direction:column;gap:8px}.book-link{display:flex;gap:14px;color:inherit;text-decoration:none}.mind-map{color:#725400;text-decoration:underline;font-size:14px;width:fit-content}
+.card{position:relative}.card.has-rating h2{padding-right:58px}.card.has-rating .summary{padding-right:34px}
+.rating-corner{position:absolute;top:0;right:0;width:76px;height:70px;display:flex;align-items:flex-start;justify-content:flex-end;gap:3px;padding:9px 7px 0 0;border-top-right-radius:11px;background:#dcefe0;color:#205b36;clip-path:polygon(0 0,100% 0,100% 100%);font-size:13px;font-weight:750;text-decoration:none;font-variant-numeric:tabular-nums}.rating-icon{font-size:11px;line-height:17px}.rating-corner:hover,.rating-corner:focus-visible{background:#bddfc6}
+</style>
+</head>
+<body>
+<header><div>帆书 <small>在线书单</small></div></header>
+<main>
+<p id="local-note">思维导图保存在本机。打开导图前，请确保<a href="http://127.0.0.1:18765/" target="_blank" rel="noopener noreferrer">本地预览</a>服务已启动。</p>
+<nav id="modules" aria-label="模块"></nav>
+<nav id="categories" aria-label="专题分类"></nav>
+<nav id="years" aria-label="年份"></nav>
+<nav id="orders" aria-label="排序"></nav>
+<p id="status" role="status"></p>
+<section id="cards" aria-label="书目"></section>
+<footer><button id="more" hidden>点击加载更多</button></footer>
+</main>
+<script>
+'use strict';
+const modules=['樊登讲书','非凡精读馆','李蕾讲经典'];
+const byId=id=>document.getElementById(id);
+const data=new Map();
+let catalog={};
+const dateFormatter=new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Shanghai',year:'numeric',month:'2-digit',day:'2-digit'});
+const date=timestamp=>timestamp && Number.isFinite(Number(timestamp))?dateFormatter.format(Number(timestamp)).replaceAll('-','.'):'';
+let selected=modules[0],category='全部',year='全部',order='最新',pages=[],loaded=0,total=0;
+function buttons(id,labels,current,select){
+  byId(id).replaceChildren(...labels.map(label=>{
+    const button=document.createElement('button');
+    button.textContent=label;
+    button.setAttribute('aria-pressed',String(label===current));
+    button.onclick=()=>{select(label);reset();};
+    return button;
+  }));
+}
+function line(tag,className,text){
+  const node=document.createElement(tag);
+  node.className=className;
+  node.textContent=text;
+  return node;
+}
+const hasRating=book=>Number.isFinite(book.doubanRating)&&
+  /^https:\/\/book\.douban\.com\/subject\/\d+\/$/.test(book.doubanUrl);
+function card(book){
+  const wrapper=line('article','card','');
+  const link=line('a','book-link','');
+  link.href=`https://www.dushu365.com/book/${encodeURIComponent(book.bookId)}`;
+  link.target='_blank';
+  link.rel='noopener noreferrer';
+  const cover=line('img','cover','');
+  if(typeof book.coverImg==='string'&&book.coverImg.startsWith('https://'))cover.src=book.coverImg;
+  cover.alt=book.title;
+  cover.loading='lazy';
+  const details=line('div','details','');
+  const summary=line('div','summary',book.summary??'');
+  summary.title=summary.textContent;
+  const published=date(book.publishTime);
+  const bottom=line('div','bottom','');
+  const count=Number(book.playCount??0);
+  bottom.append(line('span','',`播放量${count>=10000?`${(count/10000).toFixed(1)}万`:count}`),line('span','play','去官网'));
+  details.append(line('h2','',book.title),summary,line('div','date',published?`${published}上新`:''),bottom);
+  link.append(cover,details);
+  wrapper.append(link);
+  if(hasRating(book)){
+    const score=book.doubanRating.toFixed(1);
+    const rating=line('a','rating-corner','');
+    rating.setAttribute('aria-label',`豆瓣评分 ${score}，打开豆瓣条目`);
+    rating.append(line('span','rating-icon','豆'),line('span','',score));
+    wrapper.classList.add('has-rating');
+    rating.href=book.doubanUrl;
+    rating.target='_blank';
+    rating.rel='noopener noreferrer';
+    wrapper.append(rating);
+  }
+  if(book.mindMapCount){
+    for(let index=0;index<book.mindMapCount;index++){
+      const label=book.mindMapCount===1?'查看本机思维导图':`查看本机思维导图 ${index+1}`;
+      const map=line('a','mind-map',label);
+      map.href=`http://127.0.0.1:18765/mind-map/${encodeURIComponent(book.bookId)}/${index}`;
+      map.target='_blank';
+      map.rel='noopener noreferrer';
+      wrapper.append(map);
+    }
+  }
+  return wrapper;
+}
+function appendPage(){
+  if(loaded<pages.length)byId('cards').append(...pages[loaded++].map(card));
+  byId('more').hidden=loaded>=pages.length;
+  const shown=byId('cards').childElementCount;
+  byId('status').textContent=total?`共 ${total} 条 · 已显示 ${shown} 条（${loaded}/${pages.length} 页）${shown===total?' · 已全部加载':''}`:'没有符合条件的书目';
+}
+function reset(){
+  const categories=catalog[selected];
+  const modulePages=data.get(selected);
+  const original=category==='全部'?modulePages:categories.find(entry=>entry.name===category).pages;
+  const books=original.flat();
+  const years=[...new Set(modulePages.flat().map(book=>date(book.publishTime).slice(0,4)).filter(Boolean))].sort().reverse().map(value=>`${value}年`);
+  buttons('modules',modules,selected,label=>{selected=label;category='全部';year='全部';order='最新';});
+  buttons('categories',['全部',...categories.map(entry=>entry.name)],category,label=>category=label);
+  buttons('years',['全部',...years],year,label=>year=label);
+  buttons('orders',['最新','最热','豆瓣评分从高到低'],order,label=>order=label);
+  const matching=year==='全部'?books:books.filter(book=>date(book.publishTime).startsWith(year.slice(0,4)));
+  total=matching.length;
+  if(order==='最热')matching.sort((left,right)=>Number(right.playCount??0)-Number(left.playCount??0));
+  if(order==='豆瓣评分从高到低')matching.sort((left,right)=>
+    (hasRating(right)?right.doubanRating:-Infinity)-(hasRating(left)?left.doubanRating:-Infinity));
+  pages=year==='全部'&&order==='最新'?original:Array.from({length:Math.ceil(total/30)},(_,index)=>matching.slice(index*30,index*30+30));
+  loaded=0;
+  byId('cards').replaceChildren();
+  appendPage();
+}
+const validPages=value=>Array.isArray(value)&&value.every(page=>Array.isArray(page)&&page.length&&page.every(book=>book?.bookId));
+async function load(read){
+  const [pairs,topics]=await Promise.all([
+    Promise.all(modules.map(async name=>[name,await read(name)])),
+    read('专题分类')
+  ]);
+  if(pairs.some(([,value])=>!validPages(value)||!value.length))throw Error('JSON 不是有效的分页书单');
+  if(modules.some(name=>!Array.isArray(topics?.[name])||!topics[name].length||topics[name].some(entry=>!entry?.name||!validPages(entry.pages))))throw Error('JSON 不是有效的专题分类');
+  for(const [name,value] of pairs)data.set(name,value);
+  catalog=topics;
+  selected=modules[0];
+  category=year='全部';
+  order='最新';
+  reset();
+}
+byId('more').onclick=appendPage;
+load(async name=>{
+  const response=await fetch(`./${encodeURIComponent(name)}.json`);
+  if(!response.ok)throw Error(`无法加载 ${name}.json（${response.status}）`);
+  return response.json();
+}).catch(error=>{byId('status').textContent=error.message;});
+</script>
+</body>
+</html>
