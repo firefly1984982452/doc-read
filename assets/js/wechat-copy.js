@@ -223,12 +223,13 @@
     return article;
   }
 
-  function isHistoryArticle(source) {
+  function isHistoryArticle(source, book) {
     var path = (window.location.hash || '').split('?')[0].replace(/^#\//, '').replace(/\.md$/, '');
     try { path = decodeURIComponent(path); } catch (_) { return false; }
     var title = source.querySelector('h1');
-    return path === 'docs/read-history/《中国通史》纪录片学习笔记' && title &&
-      /^《中国通史》\s*(?:100\s*集\s*)?纪录片学习笔记(?:\s|\||$)/.test(title.textContent.trim());
+    return path === 'docs/read-history/' + book + '纪录片学习笔记' && title &&
+      title.textContent.trim().startsWith(book) &&
+      /^\s*(?:100\s*集\s*)?纪录片学习笔记(?:\s|\||$)/.test(title.textContent.trim().slice(book.length));
   }
 
   function isHistoryStudyTime(paragraph) {
@@ -287,10 +288,11 @@
   }
 
   function styleArticle(source) {
-    var isHistory = isHistoryArticle(source);
+    var isChinaHistory = isHistoryArticle(source, '《中国通史》');
+    var isWorldHistory = isHistoryArticle(source, '《世界通史》');
     var article = prepareArticle(source, {
-      excludeHistoryMetadata: isHistory,
-      excludeHistoryReflectionSection: isHistory,
+      excludeHistoryMetadata: isChinaHistory,
+      excludeHistoryReflectionSection: isChinaHistory,
       excludePoemSources: true
     });
 
@@ -445,7 +447,7 @@
       applyStyles(rule, { border: '0', borderTop: '1px solid #e8d7f8', margin: '16px 0' });
     });
 
-    if (isHistory) {
+    if (isChinaHistory) {
       article.querySelectorAll(':scope > p').forEach(function (label) {
         var labelText = label.textContent.trim();
         if (!/^(?:本集笔记|著名事件、名人名事、典故|备注)[：:]$/.test(labelText)) return;
@@ -465,8 +467,8 @@
           applyStyles(link, { color: '#6f25bd', textDecoration: 'underline dotted', textUnderlineOffset: '4px' });
         });
       });
-      formatHistoryOutline(article);
     }
+    if (isChinaHistory || isWorldHistory) formatHistoryOutline(article);
 
     return article;
   }
